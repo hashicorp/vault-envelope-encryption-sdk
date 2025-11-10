@@ -1,4 +1,4 @@
-TOOL?=vault-plugin-secrets-spiffe
+TOOL?=vault-envelope-encryption-sdk
 EXTERNAL_TOOLS="mvdan.cc/gofumpt@v0.8.0" "golang.org/x/tools/cmd/goimports@v0.34.0" "gotest.tools/gotestsum@v1.12.3"
 BUILD_TAGS?=${TOOL}
 GOFMT_FILES?=$$(find . -name '*.go' | grep -v vendor)
