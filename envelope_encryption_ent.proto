@@ -1,0 +1,37 @@
+// Copyright IBM Corp. 2016, 2025
+// SPDX-License-Identifier: MPL-2.0
+
+syntax = "proto3";
+package envelopeencryption;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/hashicorp/vault/sdk/helper/envelopeencryption";
+
+message Header {
+  uint32 version = 1;
+  oneof data {
+    HeaderV1 v1 = 2;
+  }
+}
+
+message KeyData {
+  optional string namespace = 1;
+  optional string mount_path = 2;
+  optional string key_name = 3;
+  uint32 key_version = 4;
+  bytes edk = 5;
+}
+
+message HeaderV1 {
+  string algorithm = 1;
+  string mime_type = 2;
+  string encoding = 3;
+  google.protobuf.Timestamp created = 4;
+  KeyData key_data = 5;
+  bytes salt = 6;
+  bytes nonce_prefix = 7;
+  optional google.protobuf.Struct metadata = 8;
+  optional uint64 length = 9;
+}
