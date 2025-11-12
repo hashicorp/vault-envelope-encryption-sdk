@@ -7,7 +7,7 @@ package envelopeencryption;
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/hashicorp/vault/sdk/helper/envelopeencryption";
+option go_package = "github.com/hashicorp/vault-envelope-encryption-sdk";
 
 message Header {
   uint32 version = 1;
