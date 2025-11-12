@@ -16,6 +16,8 @@ env:
 jobs:
   build:
     runs-on: [ 'self-hosted', 'small', 'linux' ]
+    env:
+      TEST_RESULTS: "/tmp/test-results/gotestsum-report.xml"
     permissions:
       id-token: write # Note: this permission is explicitly required for Vault auth
       contents: read
