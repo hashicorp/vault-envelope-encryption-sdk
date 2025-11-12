@@ -39,3 +39,11 @@ fmtcheck:
 fmt:
 	@goimports -w $(GOFMT_FILES)
 	@gofumpt -w $(GOFMT_FILES)
+
+.PHONY: check-tools-external
+check-tools-external:
+	@$(CURDIR)/tools/tools.sh check-external
+
+proto: check-tools-external
+	@echo "==> Generating Go code from protobufs..."
+	buf generate
