@@ -40,7 +40,6 @@ jobs:
       - name: Build & test
         run: |
           set -eux -o pipefail
-          git config --global url."https://${{ steps.secrets.outputs.elevated_github_token }}@github.com/".insteadOf "https://github.com/"
 
           make dev test
 
