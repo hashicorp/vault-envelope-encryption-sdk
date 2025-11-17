@@ -106,6 +106,7 @@ jobs:
         env:
           VAULT_DEV_ROOT_TOKEN_ID: root
           VAULT_LICENSE: ${{ secrets.VAULT_LICENSE }}
+          VAULT_ADDR: "http://localhost:8200"
           VAULT_LOCAL_CONFIG: |
             {"plugin_directory": "/vault/plugins"}
         options: >-
