@@ -1,0 +1,231 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
+package vault_envelope_encryption_sdk
+
+import (
+	"encoding/base64"
+	"fmt"
+	"testing"
+
+	"github.com/hashicorp/go-uuid"
+	"github.com/hashicorp/vault/api"
+	"github.com/stretchr/testify/require"
+)
+
+const testKeyName = "test-key"
+
+func TestCheckCommonConfig(t *testing.T) {
+	t.Parallel()
+
+	client := providerTestSetup(t)
+
+	testCases := map[string]struct {
+		config        ProviderConfig
+		expectedError string
+	}{
+		"create key": {
+			config: ProviderConfig{
+				Client:    client,
+				CreateKey: true,
+				KeyName:   "new-key",
+				Backend:   "transit",
+				CacheSize: 1,
+			},
+		},
+		"use existing key": {
+			config: ProviderConfig{
+				Client:    client,
+				KeyName:   testKeyName,
+				Backend:   "transit",
+				CacheSize: 1,
+			},
+		},
+		"missing backend": {
+			config: ProviderConfig{
+				Client:    client,
+				KeyName:   testKeyName,
+				CacheSize: 1,
+			},
+			expectedError: "missing backend",
+		},
+		"missing key name": {
+			config: ProviderConfig{
+				Client:    client,
+				Backend:   "transit",
+				CacheSize: 1,
+			},
+			expectedError: "missing key name",
+		},
+		"invalid key name": {
+			config: ProviderConfig{
+				Client:    client,
+				KeyName:   "bad-key",
+				Backend:   "transit",
+				CacheSize: 1,
+			},
+			expectedError: "key not found",
+		},
+		"nil client": {
+			config: ProviderConfig{
+				KeyName:   "new-key",
+				Backend:   "transit",
+				CacheSize: 1,
+			},
+			expectedError: "missing client",
+		},
+		"zero cache size": {
+			config: ProviderConfig{
+				Client:    client,
+				CreateKey: true,
+				KeyName:   "new-key",
+				Backend:   "transit",
+				CacheSize: 0,
+			},
+			expectedError: "cache size must be greater than zero",
+		},
+		"negative cache size": {
+			config: ProviderConfig{
+				Client:    client,
+				CreateKey: true,
+				KeyName:   "new-key",
+				Backend:   "transit",
+				CacheSize: -1,
+			},
+			expectedError: "cache size must be greater than zero",
+		},
+		"invalid key version": {
+			config: ProviderConfig{
+				Client:     client,
+				CreateKey:  true,
+				KeyName:    "new-key",
+				Backend:    "transit",
+				CacheSize:  1,
+				KeyVersion: 3,
+			},
+			expectedError: "invalid key version",
+		},
+		"invalid key bits": {
+			config: ProviderConfig{
+				Client:    client,
+				CreateKey: true,
+				KeyName:   "new-key",
+				Backend:   "transit",
+				CacheSize: 1,
+				KeyBits:   3,
+			},
+			expectedError: "invalid key size: must be 128, 256, or 512",
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			err := CheckCommonConfig(tc.config)
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				require.NoError(t, err)
+
+				resp, err := client.Logical().Read("transit/keys/" + tc.config.KeyName)
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+			}
+		})
+	}
+}
+
+func TestDecryptKey(t *testing.T) {
+	t.Parallel()
+
+	testDEK, err := uuid.GenerateRandomBytes(32)
+	require.NoError(t, err)
+
+	encodedDEK := base64.StdEncoding.EncodeToString(testDEK)
+
+	client := providerTestSetup(t)
+	_, err = client.Logical().Write(fmt.Sprintf("transit/keys/%s/rotate", testKeyName), map[string]interface{}{})
+	require.NoError(t, err)
+
+	resp, err := client.Logical().Write(fmt.Sprintf("transit/encrypt/%s", testKeyName), map[string]interface{}{"plaintext": encodedDEK, "key_version": 1})
+	require.NoError(t, err)
+
+	v1Ciphertext, ok := resp.Data["ciphertext"].(string)
+	require.True(t, ok)
+
+	resp, err = client.Logical().Write(fmt.Sprintf("transit/encrypt/%s", testKeyName), map[string]interface{}{"plaintext": encodedDEK})
+	require.NoError(t, err)
+
+	v2Ciphertext, ok := resp.Data["ciphertext"].(string)
+	require.True(t, ok)
+
+	testCases := map[string]struct {
+		backend     string
+		keyName     string
+		edk         string
+		expectedKey []byte
+		expectErr   bool
+	}{
+		"invalid backend": {
+			backend:   "trasnit",
+			keyName:   testKeyName,
+			expectErr: true,
+		},
+		"invalid key name": {
+			backend:   "transit",
+			keyName:   "bad-key",
+			expectErr: true,
+		},
+		"invalid ciphertext": {
+			backend:   "transit",
+			keyName:   testKeyName,
+			edk:       "bad-key",
+			expectErr: true,
+		},
+		"key version 1": {
+			backend:     "transit",
+			keyName:     testKeyName,
+			edk:         v1Ciphertext,
+			expectedKey: testDEK,
+		},
+		"key version 2": {
+			backend:     "transit",
+			keyName:     testKeyName,
+			edk:         v2Ciphertext,
+			expectedKey: testDEK,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			dek, err := DecryptKey(tc.backend, tc.keyName, tc.edk, client)
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedKey, dek)
+			}
+		})
+	}
+}
+
+func providerTestSetup(t *testing.T) *api.Client {
+	clientConfig := api.DefaultConfig()
+
+	client, err := api.NewClient(clientConfig)
+	require.NoError(t, err)
+
+	client.SetToken("root")
+
+	err = client.Sys().Mount("transit", &api.MountInput{Type: "transit"})
+	require.NoError(t, err)
+
+	_, err = client.Logical().Write("transit/keys/"+testKeyName, nil)
+	require.NoError(t, err)
+
+	return client
+}
