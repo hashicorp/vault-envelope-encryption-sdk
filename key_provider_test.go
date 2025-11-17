@@ -219,6 +219,7 @@ func providerTestSetup(t *testing.T) *api.Client {
 	client, err := api.NewClient(clientConfig)
 	require.NoError(t, err)
 
+	require.NoError(t, client.SetAddress("http://localhost:8200"))
 	client.SetToken("root")
 
 	err = client.Sys().Mount("transit", &api.MountInput{Type: "transit"})
