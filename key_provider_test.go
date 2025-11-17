@@ -6,25 +6,14 @@ package vault_envelope_encryption_sdk
 import (
 	"encoding/base64"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
-	"github.com/hashicorp/vault/http"
-	"github.com/hashicorp/vault/vault"
 	"github.com/stretchr/testify/require"
 )
 
 const testKeyName = "test-key"
-
-func init() {
-	if signed := os.Getenv("VAULT_LICENSE_CI"); signed != "" {
-		if err := os.Setenv("VAULT_LICENSE", signed); err != nil {
-			panic(err.Error())
-		}
-	}
-}
 
 func TestCheckCommonConfig(t *testing.T) {
 	t.Parallel()
@@ -225,17 +214,12 @@ func TestDecryptKey(t *testing.T) {
 }
 
 func providerTestSetup(t *testing.T) *api.Client {
-	core, _, token := vault.TestCoreUnsealed(t)
-
-	_, addr := http.TestServer(t, core)
-
 	clientConfig := api.DefaultConfig()
-	clientConfig.Address = addr
 
 	client, err := api.NewClient(clientConfig)
 	require.NoError(t, err)
 
-	client.SetToken(token)
+	client.SetToken("root")
 
 	err = client.Sys().Mount("transit", &api.MountInput{Type: "transit"})
 	require.NoError(t, err)

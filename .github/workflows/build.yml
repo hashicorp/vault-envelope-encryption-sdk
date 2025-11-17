@@ -14,6 +14,15 @@ env:
   GOPRIVATE: github.com/hashicorp/*
 
 jobs:
+  go-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.go-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+      - id: go-version
+        run: echo "version=$(cat .go-version)" >> "$GITHUB_OUTPUT"
+
   build:
     runs-on: [ 'self-hosted', 'small', 'linux' ]
     env:
@@ -24,6 +33,16 @@ jobs:
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Fetch Secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # pin@v3.4.0
+        with:
+          url: ${{ steps.vault-auth.outputs.addr }}
+          caCertificate: ${{ steps.vault-auth.outputs.ca_certificate }}
+          token: ${{ steps.vault-auth.outputs.token }}
+          secrets: |
+            kv/data/github/${{ github.repository }}/github-token token | elevated_github_token;
 
       - name: Set up Go
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
@@ -80,3 +99,50 @@ jobs:
       - name: Publish code coverage report to PR
         continue-on-error: true
         uses: fgrosse/go-coverage-report@8c1d1a09864211d258937b1b1a5b849f7e4f2682 # v1.2.0
+
+  acceptance:
+    name: vault_image:${{ matrix.image }}
+    needs: [ go-version ]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - "vault-enterprise:1.21.0-ent"
+          - "vault:latest"
+    services:
+      vault:
+        image: hashicorp/${{ matrix.image }}
+        env:
+          VAULT_DEV_ROOT_TOKEN_ID: root
+          VAULT_LICENSE: ${{ secrets.VAULT_LICENSE }}
+          VAULT_LOCAL_CONFIG: |
+            {"plugin_directory": "/vault/plugins"}
+        options: >-
+          --health-cmd "VAULT_ADDR=http://127.0.0.1:8200 vault status"
+          --health-interval 1s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 8200:8200
+
+    steps:
+      - name: Cache go build
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/Library/Caches/go-build
+          key: ${{ runner.os }}-golang-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-golang-
+
+      - name: Acceptance Tests
+        env:
+          VAULT_TOKEN: "root"
+          VAULT_ADDR: "http://localhost:8200"
+          # RUNS_IN_CONTAINER is false if not using jobs.<job_id>.container
+          RUNS_IN_CONTAINER: "false"
+        run: |
+          make test
