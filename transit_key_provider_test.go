@@ -62,7 +62,7 @@ func TestGetKeyPair_transitKeyProvider(t *testing.T) {
 
 	client, backend := providerTestSetup(t)
 
-	_, err := client.Logical().Write(fmt.Sprintf("transit/keys/%s/rotate", testKeyName), map[string]interface{}{})
+	_, err := client.Logical().Write(fmt.Sprintf("%s/keys/%s/rotate", backend, testKeyName), map[string]interface{}{})
 	require.NoError(t, err)
 
 	testCases := map[string]struct {
