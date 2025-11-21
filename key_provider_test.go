@@ -18,7 +18,7 @@ const testKeyName = "test-key"
 func TestCheckCommonConfig(t *testing.T) {
 	t.Parallel()
 
-	client := providerTestSetup(t)
+	client, backend := providerTestSetup(t)
 
 	testCases := map[string]struct {
 		config        ProviderConfig
@@ -29,7 +29,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Client:    client,
 				CreateKey: true,
 				KeyName:   "new-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 			},
 		},
@@ -37,7 +37,7 @@ func TestCheckCommonConfig(t *testing.T) {
 			config: ProviderConfig{
 				Client:    client,
 				KeyName:   testKeyName,
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 			},
 		},
@@ -52,7 +52,7 @@ func TestCheckCommonConfig(t *testing.T) {
 		"missing key name": {
 			config: ProviderConfig{
 				Client:    client,
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 			},
 			expectedError: "missing key name",
@@ -61,7 +61,7 @@ func TestCheckCommonConfig(t *testing.T) {
 			config: ProviderConfig{
 				Client:    client,
 				KeyName:   "bad-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 			},
 			expectedError: "key not found",
@@ -69,7 +69,7 @@ func TestCheckCommonConfig(t *testing.T) {
 		"nil client": {
 			config: ProviderConfig{
 				KeyName:   "new-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 			},
 			expectedError: "missing client",
@@ -79,7 +79,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Client:    client,
 				CreateKey: true,
 				KeyName:   "new-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 0,
 			},
 			expectedError: "cache size must be greater than zero",
@@ -89,7 +89,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Client:    client,
 				CreateKey: true,
 				KeyName:   "new-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: -1,
 			},
 			expectedError: "cache size must be greater than zero",
@@ -99,7 +99,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Client:     client,
 				CreateKey:  true,
 				KeyName:    "new-key",
-				Backend:    "transit",
+				Backend:    backend,
 				CacheSize:  1,
 				KeyVersion: 3,
 			},
@@ -110,7 +110,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Client:    client,
 				CreateKey: true,
 				KeyName:   "new-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 				KeyBits:   3,
 			},
@@ -145,7 +145,7 @@ func TestDecryptKey(t *testing.T) {
 
 	encodedDEK := base64.StdEncoding.EncodeToString(testDEK)
 
-	client := providerTestSetup(t)
+	client, backend := providerTestSetup(t)
 	_, err = client.Logical().Write(fmt.Sprintf("transit/keys/%s/rotate", testKeyName), map[string]interface{}{})
 	require.NoError(t, err)
 
@@ -174,24 +174,24 @@ func TestDecryptKey(t *testing.T) {
 			expectErr: true,
 		},
 		"invalid key name": {
-			backend:   "transit",
+			backend:   backend,
 			keyName:   "bad-key",
 			expectErr: true,
 		},
 		"invalid ciphertext": {
-			backend:   "transit",
+			backend:   backend,
 			keyName:   testKeyName,
 			edk:       "bad-key",
 			expectErr: true,
 		},
 		"key version 1": {
-			backend:     "transit",
+			backend:     backend,
 			keyName:     testKeyName,
 			edk:         v1Ciphertext,
 			expectedKey: testDEK,
 		},
 		"key version 2": {
-			backend:     "transit",
+			backend:     backend,
 			keyName:     testKeyName,
 			edk:         v2Ciphertext,
 			expectedKey: testDEK,
@@ -213,7 +213,7 @@ func TestDecryptKey(t *testing.T) {
 	}
 }
 
-func providerTestSetup(t *testing.T) *api.Client {
+func providerTestSetup(t *testing.T) (*api.Client, string) {
 	clientConfig := api.DefaultConfig()
 
 	client, err := api.NewClient(clientConfig)
@@ -225,11 +225,13 @@ func providerTestSetup(t *testing.T) *api.Client {
 	id, err := uuid.GenerateUUID()
 	require.NoError(t, err)
 
-	err = client.Sys().Mount(fmt.Sprintf("transit-%s", id), &api.MountInput{Type: "transit"})
+	backend := fmt.Sprintf("transit-%s", id)
+
+	err = client.Sys().Mount(backend, &api.MountInput{Type: "transit"})
 	require.NoError(t, err)
 
 	_, err = client.Logical().Write("transit/keys/"+testKeyName, nil)
 	require.NoError(t, err)
 
-	return client
+	return client, backend
 }
