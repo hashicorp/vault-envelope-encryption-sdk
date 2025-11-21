@@ -6,30 +6,19 @@ package vault_envelope_encryption_sdk
 import (
 	"encoding/base64"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
-	"github.com/hashicorp/vault/http"
-	"github.com/hashicorp/vault/vault"
 	"github.com/stretchr/testify/require"
 )
 
 const testKeyName = "test-key"
 
-func init() {
-	if signed := os.Getenv("VAULT_LICENSE_CI"); signed != "" {
-		if err := os.Setenv("VAULT_LICENSE", signed); err != nil {
-			panic(err.Error())
-		}
-	}
-}
-
 func TestCheckCommonConfig(t *testing.T) {
 	t.Parallel()
 
-	client := providerTestSetup(t)
+	client, backend := providerTestSetup(t)
 
 	testCases := map[string]struct {
 		config        ProviderConfig
@@ -40,7 +29,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Client:    client,
 				CreateKey: true,
 				KeyName:   "new-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 			},
 		},
@@ -48,7 +37,7 @@ func TestCheckCommonConfig(t *testing.T) {
 			config: ProviderConfig{
 				Client:    client,
 				KeyName:   testKeyName,
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 			},
 		},
@@ -63,7 +52,7 @@ func TestCheckCommonConfig(t *testing.T) {
 		"missing key name": {
 			config: ProviderConfig{
 				Client:    client,
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 			},
 			expectedError: "missing key name",
@@ -72,7 +61,7 @@ func TestCheckCommonConfig(t *testing.T) {
 			config: ProviderConfig{
 				Client:    client,
 				KeyName:   "bad-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 			},
 			expectedError: "key not found",
@@ -80,7 +69,7 @@ func TestCheckCommonConfig(t *testing.T) {
 		"nil client": {
 			config: ProviderConfig{
 				KeyName:   "new-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 			},
 			expectedError: "missing client",
@@ -90,7 +79,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Client:    client,
 				CreateKey: true,
 				KeyName:   "new-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 0,
 			},
 			expectedError: "cache size must be greater than zero",
@@ -100,7 +89,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Client:    client,
 				CreateKey: true,
 				KeyName:   "new-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: -1,
 			},
 			expectedError: "cache size must be greater than zero",
@@ -110,7 +99,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Client:     client,
 				CreateKey:  true,
 				KeyName:    "new-key",
-				Backend:    "transit",
+				Backend:    backend,
 				CacheSize:  1,
 				KeyVersion: 3,
 			},
@@ -121,7 +110,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Client:    client,
 				CreateKey: true,
 				KeyName:   "new-key",
-				Backend:   "transit",
+				Backend:   backend,
 				CacheSize: 1,
 				KeyBits:   3,
 			},
@@ -140,7 +129,7 @@ func TestCheckCommonConfig(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				resp, err := client.Logical().Read("transit/keys/" + tc.config.KeyName)
+				resp, err := client.Logical().Read(fmt.Sprintf("%s/keys/%s", backend, tc.config.KeyName))
 				require.NoError(t, err)
 				require.NotNil(t, resp)
 			}
@@ -156,17 +145,17 @@ func TestDecryptKey(t *testing.T) {
 
 	encodedDEK := base64.StdEncoding.EncodeToString(testDEK)
 
-	client := providerTestSetup(t)
-	_, err = client.Logical().Write(fmt.Sprintf("transit/keys/%s/rotate", testKeyName), map[string]interface{}{})
+	client, backend := providerTestSetup(t)
+	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s/rotate", backend, testKeyName), map[string]interface{}{})
 	require.NoError(t, err)
 
-	resp, err := client.Logical().Write(fmt.Sprintf("transit/encrypt/%s", testKeyName), map[string]interface{}{"plaintext": encodedDEK, "key_version": 1})
+	resp, err := client.Logical().Write(fmt.Sprintf("%s/encrypt/%s", backend, testKeyName), map[string]interface{}{"plaintext": encodedDEK, "key_version": 1})
 	require.NoError(t, err)
 
 	v1Ciphertext, ok := resp.Data["ciphertext"].(string)
 	require.True(t, ok)
 
-	resp, err = client.Logical().Write(fmt.Sprintf("transit/encrypt/%s", testKeyName), map[string]interface{}{"plaintext": encodedDEK})
+	resp, err = client.Logical().Write(fmt.Sprintf("%s/encrypt/%s", backend, testKeyName), map[string]interface{}{"plaintext": encodedDEK})
 	require.NoError(t, err)
 
 	v2Ciphertext, ok := resp.Data["ciphertext"].(string)
@@ -185,24 +174,24 @@ func TestDecryptKey(t *testing.T) {
 			expectErr: true,
 		},
 		"invalid key name": {
-			backend:   "transit",
+			backend:   backend,
 			keyName:   "bad-key",
 			expectErr: true,
 		},
 		"invalid ciphertext": {
-			backend:   "transit",
+			backend:   backend,
 			keyName:   testKeyName,
 			edk:       "bad-key",
 			expectErr: true,
 		},
 		"key version 1": {
-			backend:     "transit",
+			backend:     backend,
 			keyName:     testKeyName,
 			edk:         v1Ciphertext,
 			expectedKey: testDEK,
 		},
 		"key version 2": {
-			backend:     "transit",
+			backend:     backend,
 			keyName:     testKeyName,
 			edk:         v2Ciphertext,
 			expectedKey: testDEK,
@@ -224,24 +213,25 @@ func TestDecryptKey(t *testing.T) {
 	}
 }
 
-func providerTestSetup(t *testing.T) *api.Client {
-	core, _, token := vault.TestCoreUnsealed(t)
-
-	_, addr := http.TestServer(t, core)
-
+func providerTestSetup(t *testing.T) (*api.Client, string) {
 	clientConfig := api.DefaultConfig()
-	clientConfig.Address = addr
 
 	client, err := api.NewClient(clientConfig)
 	require.NoError(t, err)
 
-	client.SetToken(token)
+	require.NoError(t, client.SetAddress("http://localhost:8200"))
+	client.SetToken("root")
 
-	err = client.Sys().Mount("transit", &api.MountInput{Type: "transit"})
+	id, err := uuid.GenerateUUID()
 	require.NoError(t, err)
 
-	_, err = client.Logical().Write("transit/keys/"+testKeyName, nil)
+	backend := fmt.Sprintf("transit-%s", id)
+
+	err = client.Sys().Mount(backend, &api.MountInput{Type: "transit"})
 	require.NoError(t, err)
 
-	return client
+	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s", backend, testKeyName), nil)
+	require.NoError(t, err)
+
+	return client, backend
 }
