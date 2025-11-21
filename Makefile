@@ -17,7 +17,7 @@ dev: fmtcheck
 	@CGO_ENABLED=0 BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/build.sh'"
 
 .PHONY: test
-test: go-version-check fmtcheck
+test:
 	gotestsum --format testname -- -tags='$(BUILD_TAGS)'  ./... -timeout=10m -count=1 || exit 1; \
 
 .PHONY: test-race
