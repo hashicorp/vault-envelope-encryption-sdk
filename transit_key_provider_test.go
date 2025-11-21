@@ -6,19 +6,10 @@ package vault_envelope_encryption_sdk
 import (
 	"encoding/base64"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-func init() {
-	if signed := os.Getenv("VAULT_LICENSE_CI"); signed != "" {
-		if err := os.Setenv("VAULT_LICENSE", signed); err != nil {
-			panic(err.Error())
-		}
-	}
-}
 
 func TestGetKeyPair_transitKeyProvider(t *testing.T) {
 	t.Parallel()
