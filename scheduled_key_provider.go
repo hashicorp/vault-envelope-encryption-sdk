@@ -6,21 +6,12 @@ package vault_envelope_encryption_sdk
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/vault/api"
 )
-
-func init() {
-	if signed := os.Getenv("VAULT_LICENSE_CI"); signed != "" {
-		if err := os.Setenv("VAULT_LICENSE", signed); err != nil {
-			panic(err.Error())
-		}
-	}
-}
 
 type scheduledKeyProvider struct {
 	client   *api.Client
@@ -32,7 +23,7 @@ type scheduledKeyProvider struct {
 }
 
 func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
-	err := CheckCommonConfig(config)
+	err := checkCommonConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +125,7 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 		}, nil
 	}
 
-	dek, err := DecryptKey(p.backend, p.keyName, edk, p.client)
+	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +148,7 @@ func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 		return dek, nil
 	}
 
-	dek, err := DecryptKey(p.backend, p.keyName, edk, p.client)
+	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
 	if err != nil {
 		return nil, err
 	}
