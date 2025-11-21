@@ -4,20 +4,11 @@
 package vault_envelope_encryption_sdk
 
 import (
-	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
-
-func init() {
-	if signed := os.Getenv("VAULT_LICENSE_CI"); signed != "" {
-		if err := os.Setenv("VAULT_LICENSE", signed); err != nil {
-			panic(err.Error())
-		}
-	}
-}
 
 func TestNewScheduledKeyProvider(t *testing.T) {
 	t.Parallel()
@@ -25,8 +16,9 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 	client := providerTestSetup(t)
 
 	testCases := map[string]struct {
-		config        ProviderConfig
-		expectedError string
+		config          ProviderConfig
+		expectedNumKeys int
+		expectedError   string
 	}{
 		"create key": {
 			config: ProviderConfig{
@@ -39,6 +31,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 				DaysFuture:       1,
 				DailyKeyInterval: 24 * time.Hour,
 			},
+			expectedNumKeys: 3,
 		},
 		"use existing key": {
 			config: ProviderConfig{
@@ -50,6 +43,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 				DaysFuture:       1,
 				DailyKeyInterval: 24 * time.Hour,
 			},
+			expectedNumKeys: 3,
 		},
 		"missing backend": {
 			config: ProviderConfig{
@@ -178,6 +172,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 				DaysFuture:       0,
 				DailyKeyInterval: 24 * time.Hour,
 			},
+			expectedNumKeys: 1,
 		},
 		"multiple keys per day": {
 			config: ProviderConfig{
@@ -189,6 +184,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 				DaysFuture:       1,
 				DailyKeyInterval: time.Hour,
 			},
+			expectedNumKeys: 72,
 		},
 	}
 
@@ -207,6 +203,22 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 				resp, err := client.Logical().Read("transit/keys/" + tc.config.KeyName)
 				require.NoError(t, err)
 				require.NotNil(t, resp)
+
+				scheduledProvider, ok := provider.(*scheduledKeyProvider)
+				require.True(t, ok)
+
+				require.Equal(t, tc.config.KeyName, scheduledProvider.keyName)
+				require.Equal(t, tc.config.Backend, scheduledProvider.backend)
+				require.Equal(t, tc.config.DailyKeyInterval, scheduledProvider.interval)
+				require.Equal(t, tc.config.DaysPast+tc.config.DaysFuture+1, len(scheduledProvider.keys))
+
+				numKeys := 0
+				for _, key := range scheduledProvider.keys {
+					require.Equal(t, tc.config.KeyBits, len(key[0]))
+					numKeys += len(key)
+				}
+
+				require.Equal(t, tc.expectedNumKeys, numKeys)
 			}
 		})
 	}
