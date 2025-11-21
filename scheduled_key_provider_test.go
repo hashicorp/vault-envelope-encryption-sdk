@@ -215,7 +215,6 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 
 				numKeys := 0
 				for _, key := range scheduledProvider.keys {
-					require.Equal(t, tc.config.KeyBits, len(key[0]))
 					numKeys += len(key)
 				}
 
@@ -249,6 +248,7 @@ func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
 			key, err := provider.GetKeyPair()
 			require.NoError(t, err)
 			require.NotEmpty(t, key)
+			require.Equal(t, 32, len(key.DEK))
 		})
 	}
 }
