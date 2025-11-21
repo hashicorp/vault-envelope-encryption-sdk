@@ -56,8 +56,6 @@ jobs:
 
           go build ./...
 
-          go install gotest.tools/gotestsum@v1.9.0
-
   acceptance:
     name: vault_image:${{ matrix.image }}
     needs: [ go-version ]
@@ -101,6 +99,8 @@ jobs:
           # RUNS_IN_CONTAINER is false if not using jobs.<job_id>.container
           RUNS_IN_CONTAINER: "false"
         run: |
+          go install gotest.tools/gotestsum@v1.9.0
+          
           CGO_ENABLED=1 \
           gotestsum --format=short-verbose --junitfile "${TEST_RESULTS}" -- \
           -timeout=10m \
