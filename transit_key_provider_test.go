@@ -14,12 +14,12 @@ import (
 func TestNewTransitKeyProvider(t *testing.T) {
 	t.Parallel()
 
-	client := providerTestSetup(t)
+	client, backend := providerTestSetup(t)
 	provider, err := NewTransitKeyProvider(ProviderConfig{
 		Client:     client,
 		CacheSize:  2,
 		KeyName:    testKeyName,
-		Backend:    "transit",
+		Backend:    backend,
 		KeyBits:    128,
 		KeyVersion: 1,
 	})
@@ -28,7 +28,7 @@ func TestNewTransitKeyProvider(t *testing.T) {
 	transitProvider, ok := provider.(*transitKeyProvider)
 	require.True(t, ok)
 
-	require.Equal(t, "transit", transitProvider.backend)
+	require.Equal(t, backend, transitProvider.backend)
 	require.Equal(t, testKeyName, transitProvider.keyName)
 	require.Equal(t, 128, transitProvider.keyBits)
 	require.Equal(t, 1, transitProvider.keyVersion)
@@ -37,7 +37,7 @@ func TestNewTransitKeyProvider(t *testing.T) {
 		Client:     client,
 		CacheSize:  2,
 		KeyName:    testKeyName + "-new-key",
-		Backend:    "transit",
+		Backend:    backend,
 		KeyBits:    128,
 		KeyVersion: 1,
 		CreateKey:  true,
@@ -47,16 +47,20 @@ func TestNewTransitKeyProvider(t *testing.T) {
 	transitProvider, ok = provider.(*transitKeyProvider)
 	require.True(t, ok)
 
-	require.Equal(t, "transit", transitProvider.backend)
+	require.Equal(t, backend, transitProvider.backend)
 	require.Equal(t, testKeyName+"-new-key", transitProvider.keyName)
 	require.Equal(t, 128, transitProvider.keyBits)
 	require.Equal(t, 1, transitProvider.keyVersion)
+
+	resp, err := client.Logical().Read(fmt.Sprintf("%s/keys/%s%s", backend, testKeyName, "-new-key"))
+	require.NoError(t, err)
+	require.NotNil(t, resp)
 }
 
 func TestGetKeyPair_transitKeyProvider(t *testing.T) {
 	t.Parallel()
 
-	client := providerTestSetup(t)
+	client, backend := providerTestSetup(t)
 
 	_, err := client.Logical().Write(fmt.Sprintf("transit/keys/%s/rotate", testKeyName), map[string]interface{}{})
 	require.NoError(t, err)
@@ -95,7 +99,7 @@ func TestGetKeyPair_transitKeyProvider(t *testing.T) {
 			provider, err := NewTransitKeyProvider(ProviderConfig{
 				Client:     client,
 				KeyName:    testKeyName,
-				Backend:    "transit",
+				Backend:    backend,
 				CacheSize:  1,
 				KeyBits:    tc.bits,
 				KeyVersion: tc.keyVersion,
@@ -126,17 +130,17 @@ func TestGetKeyPair_transitKeyProvider(t *testing.T) {
 func TestDecryptKeyPair_transitKeyProvider(t *testing.T) {
 	t.Parallel()
 
-	client := providerTestSetup(t)
+	client, backend := providerTestSetup(t)
 
 	provider, err := NewTransitKeyProvider(ProviderConfig{
 		Client:    client,
 		KeyName:   testKeyName,
-		Backend:   "transit",
+		Backend:   backend,
 		CacheSize: 1,
 	})
 	require.NoError(t, err)
 
-	resp, err := client.Logical().Write(fmt.Sprintf("transit/datakey/plaintext/%s", testKeyName), map[string]interface{}{})
+	resp, err := client.Logical().Write(fmt.Sprintf("%s/datakey/plaintext/%s", backend, testKeyName), map[string]interface{}{})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -148,10 +152,10 @@ func TestDecryptKeyPair_transitKeyProvider(t *testing.T) {
 	v1Key, err := base64.StdEncoding.DecodeString(v1Plaintext)
 	require.NoError(t, err)
 
-	_, err = client.Logical().Write(fmt.Sprintf("transit/keys/%s/rotate", testKeyName), map[string]interface{}{})
+	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s/rotate", backend, testKeyName), map[string]interface{}{})
 	require.NoError(t, err)
 
-	resp, err = client.Logical().Write(fmt.Sprintf("transit/datakey/plaintext/%s", testKeyName), map[string]interface{}{})
+	resp, err = client.Logical().Write(fmt.Sprintf("%s/datakey/plaintext/%s", backend, testKeyName), map[string]interface{}{})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
