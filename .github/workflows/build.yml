@@ -48,25 +48,6 @@ jobs:
           max_attempts: 3
           command: make bootstrap
 
-      - name: Build & test
-        env:
-          GOPRIVATE: github.com/hashicorp/*
-        run: |
-          set -eux -o pipefail
-
-          go build ./...
-
-          go install gotest.tools/gotestsum@v1.9.0
-          CGO_ENABLED=1 \
-            gotestsum --format=short-verbose --junitfile "${TEST_RESULTS}" -- \
-              -timeout=10m \
-              -parallel=20 \
-              ./...
-
-      - name: Race test
-        run: |
-          make test-race
-
       - name: Run code coverage
         run: make cover
 
@@ -133,4 +114,13 @@ jobs:
           # RUNS_IN_CONTAINER is false if not using jobs.<job_id>.container
           RUNS_IN_CONTAINER: "false"
         run: |
-          make test
+          set -eux -o pipefail
+
+          go build ./...
+
+          go install gotest.tools/gotestsum@v1.9.0
+          CGO_ENABLED=1 \
+          gotestsum --format=short-verbose --junitfile "${TEST_RESULTS}" -- \
+          -timeout=10m \
+          -parallel=20 \
+          ./...

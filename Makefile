@@ -47,6 +47,3 @@ check-tools-external:
 proto: check-tools-external
 	@echo "==> Generating Go code from protobufs..."
 	buf generate
-
-test:
-	VAULT_TOKEN= go test $(TESTARGS) -timeout 10m $(TEST_PATH)
