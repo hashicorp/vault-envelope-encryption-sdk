@@ -153,12 +153,7 @@ func TestNewEncryptingWriter(t *testing.T) {
 func TestNewDecryptingReader(t *testing.T) {
 	t.Parallel()
 
-	client, err := api.NewClient(&api.Config{
-		Address: "http://127.0.0.1:8200",
-	})
-	require.NoError(t, err)
-
-	client.SetToken("root")
+	client, backend := providerTestSetup(t)
 
 	dir, err := os.MkdirTemp("", "streamingaead")
 	if err != nil {
@@ -167,7 +162,6 @@ func TestNewDecryptingReader(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	keyName := testKeyName
-	backend := "transit"
 
 	provider, err := NewTransitKeyProvider(ProviderConfig{
 		Client:    client,
@@ -235,12 +229,7 @@ func TestNewDecryptingReader(t *testing.T) {
 func TestNewDecryptingReader_errorCases(t *testing.T) {
 	t.Parallel()
 
-	client, err := api.NewClient(&api.Config{
-		Address: "http://127.0.0.1:8200",
-	})
-	require.NoError(t, err)
-
-	client.SetToken("root")
+	client, backend := providerTestSetup(t)
 
 	dir, err := os.MkdirTemp("", "streamingaead")
 	if err != nil {
@@ -249,7 +238,6 @@ func TestNewDecryptingReader_errorCases(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	keyName := testKeyName
-	backend := "transit"
 
 	provider, err := NewTransitKeyProvider(ProviderConfig{
 		Client:    client,
