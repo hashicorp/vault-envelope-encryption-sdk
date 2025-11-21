@@ -18,7 +18,6 @@ type ProviderConfig struct {
 	CacheSize        int
 	KeyName          string
 	Backend          string
-	CreateKey        bool
 	KeyVersion       int
 	KeyBits          int
 	DaysPast         int
@@ -36,7 +35,7 @@ type KeyProvider interface {
 	DecryptKeyPair(edk string) ([]byte, error)
 }
 
-func CheckCommonConfig(config ProviderConfig) error {
+func checkCommonConfig(config ProviderConfig) error {
 	if config.Client == nil {
 		return errors.New("missing client")
 	}
@@ -55,13 +54,6 @@ func CheckCommonConfig(config ProviderConfig) error {
 
 	if config.KeyBits != 0 && config.KeyBits != 128 && config.KeyBits != 256 && config.KeyBits != 512 {
 		return errors.New("invalid key size: must be 128, 256, or 512")
-	}
-
-	if config.CreateKey {
-		_, err := config.Client.Logical().Write(fmt.Sprintf("%s/keys/%s", config.Backend, config.KeyName), map[string]interface{}{})
-		if err != nil {
-			return fmt.Errorf("error creating key: %v", err)
-		}
 	}
 
 	resp, err := config.Client.Logical().Read(fmt.Sprintf("%s/keys/%s", config.Backend, config.KeyName))
@@ -86,7 +78,7 @@ func CheckCommonConfig(config ProviderConfig) error {
 	return nil
 }
 
-func DecryptKey(backend, keyName, ciphertext string, client *api.Client) ([]byte, error) {
+func decryptKey(backend, keyName, ciphertext string, client *api.Client) ([]byte, error) {
 	resp, err := client.Logical().Write(fmt.Sprintf("%s/decrypt/%s", backend, keyName), map[string]interface{}{"ciphertext": ciphertext})
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting key: %v", err)
