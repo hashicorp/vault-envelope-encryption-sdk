@@ -4,6 +4,7 @@
 package vault_envelope_encryption_sdk
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 func TestNewScheduledKeyProvider(t *testing.T) {
 	t.Parallel()
 
-	client := providerTestSetup(t)
+	client, backend := providerTestSetup(t)
 
 	testCases := map[string]struct {
 		config          ProviderConfig
@@ -25,7 +26,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 				Client:           client,
 				CreateKey:        true,
 				KeyName:          "new-key",
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
 				DaysFuture:       1,
@@ -37,7 +38,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 			config: ProviderConfig{
 				Client:           client,
 				KeyName:          testKeyName,
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
 				DaysFuture:       1,
@@ -59,7 +60,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"missing key name": {
 			config: ProviderConfig{
 				Client:           client,
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
 				DaysFuture:       1,
@@ -71,7 +72,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 			config: ProviderConfig{
 				Client:           client,
 				KeyName:          "bad-key",
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
 				DaysFuture:       1,
@@ -82,7 +83,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"nil client": {
 			config: ProviderConfig{
 				KeyName:          testKeyName,
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
 				DaysFuture:       1,
@@ -94,7 +95,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 			config: ProviderConfig{
 				Client:           client,
 				KeyName:          testKeyName,
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        0,
 				DaysPast:         1,
 				DaysFuture:       1,
@@ -106,7 +107,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 			config: ProviderConfig{
 				Client:           client,
 				KeyName:          testKeyName,
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        -1,
 				DaysPast:         1,
 				DaysFuture:       1,
@@ -118,7 +119,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 			config: ProviderConfig{
 				Client:           client,
 				KeyName:          testKeyName,
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
 				DaysFuture:       1,
@@ -130,7 +131,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 			config: ProviderConfig{
 				Client:           client,
 				KeyName:          testKeyName,
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
 				DaysFuture:       1,
@@ -142,7 +143,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 			config: ProviderConfig{
 				Client:           client,
 				KeyName:          testKeyName,
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         -1,
 				DaysFuture:       1,
@@ -154,7 +155,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 			config: ProviderConfig{
 				Client:           client,
 				KeyName:          testKeyName,
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
 				DaysFuture:       -1,
@@ -166,7 +167,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 			config: ProviderConfig{
 				Client:           client,
 				KeyName:          testKeyName,
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         0,
 				DaysFuture:       0,
@@ -178,7 +179,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 			config: ProviderConfig{
 				Client:           client,
 				KeyName:          testKeyName,
-				Backend:          "transit",
+				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
 				DaysFuture:       1,
@@ -200,7 +201,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, provider)
 
-				resp, err := client.Logical().Read("transit/keys/" + tc.config.KeyName)
+				resp, err := client.Logical().Read(fmt.Sprintf("%s/keys/%s", backend, tc.config.KeyName))
 				require.NoError(t, err)
 				require.NotNil(t, resp)
 
@@ -225,7 +226,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 }
 
 func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
-	client := providerTestSetup(t)
+	client, backend := providerTestSetup(t)
 
 	testCases := map[string]time.Duration{
 		"single key per day": 24 * time.Hour,
@@ -239,7 +240,7 @@ func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
 			provider, err := NewScheduledKeyProvider(ProviderConfig{
 				DailyKeyInterval: tc,
 				Client:           client,
-				Backend:          "transit",
+				Backend:          backend,
 				KeyName:          testKeyName,
 				CacheSize:        1,
 			})
@@ -253,12 +254,12 @@ func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
 }
 
 func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
-	client := providerTestSetup(t)
+	client, backend := providerTestSetup(t)
 
 	provider, err := NewScheduledKeyProvider(ProviderConfig{
 		DailyKeyInterval: 24 * time.Hour,
 		Client:           client,
-		Backend:          "transit",
+		Backend:          backend,
 		KeyName:          testKeyName,
 		CacheSize:        1,
 	})

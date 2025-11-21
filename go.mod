@@ -4,6 +4,7 @@ go 1.25.3
 
 require (
 	github.com/hashicorp/go-uuid v1.0.3
+	github.com/hashicorp/golang-lru v1.0.2
 	github.com/hashicorp/vault/api v1.22.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/protobuf v1.36.10
