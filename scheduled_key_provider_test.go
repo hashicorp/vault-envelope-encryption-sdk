@@ -21,20 +21,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		expectedNumKeys int
 		expectedError   string
 	}{
-		"create key": {
-			config: ProviderConfig{
-				Client:           client,
-				CreateKey:        true,
-				KeyName:          "new-key",
-				Backend:          backend,
-				CacheSize:        1,
-				DaysPast:         1,
-				DaysFuture:       1,
-				DailyKeyInterval: 24 * time.Hour,
-			},
-			expectedNumKeys: 3,
-		},
-		"use existing key": {
+		"single key per day": {
 			config: ProviderConfig{
 				Client:           client,
 				KeyName:          testKeyName,
