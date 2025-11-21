@@ -129,7 +129,7 @@ func TestCheckCommonConfig(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				resp, err := client.Logical().Read("transit/keys/" + tc.config.KeyName)
+				resp, err := client.Logical().Read(fmt.Sprintf("%s/keys/%s", backend, tc.config.KeyName))
 				require.NoError(t, err)
 				require.NotNil(t, resp)
 			}
@@ -146,16 +146,16 @@ func TestDecryptKey(t *testing.T) {
 	encodedDEK := base64.StdEncoding.EncodeToString(testDEK)
 
 	client, backend := providerTestSetup(t)
-	_, err = client.Logical().Write(fmt.Sprintf("transit/keys/%s/rotate", testKeyName), map[string]interface{}{})
+	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s/rotate", backend, testKeyName), map[string]interface{}{})
 	require.NoError(t, err)
 
-	resp, err := client.Logical().Write(fmt.Sprintf("transit/encrypt/%s", testKeyName), map[string]interface{}{"plaintext": encodedDEK, "key_version": 1})
+	resp, err := client.Logical().Write(fmt.Sprintf("%s/encrypt/%s", backend, testKeyName), map[string]interface{}{"plaintext": encodedDEK, "key_version": 1})
 	require.NoError(t, err)
 
 	v1Ciphertext, ok := resp.Data["ciphertext"].(string)
 	require.True(t, ok)
 
-	resp, err = client.Logical().Write(fmt.Sprintf("transit/encrypt/%s", testKeyName), map[string]interface{}{"plaintext": encodedDEK})
+	resp, err = client.Logical().Write(fmt.Sprintf("%s/encrypt/%s", backend, testKeyName), map[string]interface{}{"plaintext": encodedDEK})
 	require.NoError(t, err)
 
 	v2Ciphertext, ok := resp.Data["ciphertext"].(string)
@@ -230,7 +230,7 @@ func providerTestSetup(t *testing.T) (*api.Client, string) {
 	err = client.Sys().Mount(backend, &api.MountInput{Type: "transit"})
 	require.NoError(t, err)
 
-	_, err = client.Logical().Write("transit/keys/"+testKeyName, nil)
+	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s", backend, testKeyName), nil)
 	require.NoError(t, err)
 
 	return client, backend
