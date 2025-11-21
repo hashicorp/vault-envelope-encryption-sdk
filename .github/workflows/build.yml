@@ -99,4 +99,6 @@ jobs:
           # RUNS_IN_CONTAINER is false if not using jobs.<job_id>.container
           RUNS_IN_CONTAINER: "false"
         run: |
-          go test -test.v -timeout 30m ./...
+          go install gotest.tools/gotestsum@v1.9.0
+          
+          make test
