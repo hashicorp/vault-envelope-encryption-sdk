@@ -22,7 +22,7 @@ type transitKeyProvider struct {
 }
 
 func NewTransitKeyProvider(config ProviderConfig) (KeyProvider, error) {
-	err := CheckCommonConfig(config)
+	err := checkCommonConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 		return dek, nil
 	}
 
-	dek, err := DecryptKey(p.backend, p.keyName, edk, p.client)
+	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
 	if err != nil {
 		return nil, err
 	}
