@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hashicorp/vault/api"
 	"github.com/stretchr/testify/require"
 	"github.com/tink-crypto/tink-go/v2/streamingaead/subtle"
 )
@@ -314,18 +313,13 @@ func TestNewDecryptingReader_errorCases(t *testing.T) {
 func TestEncryptDecrypt(t *testing.T) {
 	t.Parallel()
 
-	client, err := api.NewClient(&api.Config{
-		Address: "http://127.0.0.1:8200",
-	})
-	require.NoError(t, err)
-
-	client.SetToken("root")
+	client, backend := providerTestSetup(t)
 
 	provider, err := NewTransitKeyProvider(ProviderConfig{
 		Client:    client,
 		CacheSize: 1,
 		KeyName:   testKeyName,
-		Backend:   "transit",
+		Backend:   backend,
 	})
 	require.NoError(t, err)
 
@@ -335,7 +329,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		Client:           client,
 		CacheSize:        1,
 		KeyName:          testKeyName,
-		Backend:          "transit",
+		Backend:          backend,
 		DaysPast:         1,
 		DaysFuture:       1,
 		DailyKeyInterval: time.Hour * 24,
