@@ -11,6 +11,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNewTransitKeyProvider(t *testing.T) {
+	t.Parallel()
+
+	client := providerTestSetup(t)
+	provider, err := NewTransitKeyProvider(ProviderConfig{
+		Client:     client,
+		CacheSize:  2,
+		KeyName:    testKeyName,
+		Backend:    "transit",
+		KeyBits:    128,
+		KeyVersion: 1,
+	})
+	require.NoError(t, err)
+
+	transitProvider, ok := provider.(*transitKeyProvider)
+	require.True(t, ok)
+
+	require.Equal(t, "transit", transitProvider.backend)
+	require.Equal(t, testKeyName, transitProvider.keyName)
+	require.Equal(t, 128, transitProvider.keyBits)
+	require.Equal(t, 1, transitProvider.keyVersion)
+
+	provider, err = NewTransitKeyProvider(ProviderConfig{
+		Client:     client,
+		CacheSize:  2,
+		KeyName:    testKeyName + "-new-key",
+		Backend:    "transit",
+		KeyBits:    128,
+		KeyVersion: 1,
+		CreateKey:  true,
+	})
+	require.NoError(t, err)
+
+	transitProvider, ok = provider.(*transitKeyProvider)
+	require.True(t, ok)
+
+	require.Equal(t, "transit", transitProvider.backend)
+	require.Equal(t, testKeyName+"-new-key", transitProvider.keyName)
+	require.Equal(t, 128, transitProvider.keyBits)
+	require.Equal(t, 1, transitProvider.keyVersion)
+}
+
 func TestGetKeyPair_transitKeyProvider(t *testing.T) {
 	t.Parallel()
 
