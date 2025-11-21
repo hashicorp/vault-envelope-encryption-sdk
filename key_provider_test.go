@@ -222,7 +222,10 @@ func providerTestSetup(t *testing.T) *api.Client {
 	require.NoError(t, client.SetAddress("http://localhost:8200"))
 	client.SetToken("root")
 
-	err = client.Sys().Mount("transit", &api.MountInput{Type: "transit"})
+	id, err := uuid.GenerateUUID()
+	require.NoError(t, err)
+
+	err = client.Sys().Mount(fmt.Sprintf("transit-%s", id), &api.MountInput{Type: "transit"})
 	require.NoError(t, err)
 
 	_, err = client.Logical().Write("transit/keys/"+testKeyName, nil)
