@@ -24,16 +24,7 @@ func TestCheckCommonConfig(t *testing.T) {
 		config        ProviderConfig
 		expectedError string
 	}{
-		"create key": {
-			config: ProviderConfig{
-				Client:    client,
-				CreateKey: true,
-				KeyName:   "new-key",
-				Backend:   backend,
-				CacheSize: 1,
-			},
-		},
-		"use existing key": {
+		"valid config": {
 			config: ProviderConfig{
 				Client:    client,
 				KeyName:   testKeyName,
@@ -77,8 +68,7 @@ func TestCheckCommonConfig(t *testing.T) {
 		"zero cache size": {
 			config: ProviderConfig{
 				Client:    client,
-				CreateKey: true,
-				KeyName:   "new-key",
+				KeyName:   testKeyName,
 				Backend:   backend,
 				CacheSize: 0,
 			},
@@ -87,8 +77,7 @@ func TestCheckCommonConfig(t *testing.T) {
 		"negative cache size": {
 			config: ProviderConfig{
 				Client:    client,
-				CreateKey: true,
-				KeyName:   "new-key",
+				KeyName:   testKeyName,
 				Backend:   backend,
 				CacheSize: -1,
 			},
@@ -97,8 +86,7 @@ func TestCheckCommonConfig(t *testing.T) {
 		"invalid key version": {
 			config: ProviderConfig{
 				Client:     client,
-				CreateKey:  true,
-				KeyName:    "new-key",
+				KeyName:    testKeyName,
 				Backend:    backend,
 				CacheSize:  1,
 				KeyVersion: 3,
@@ -108,8 +96,7 @@ func TestCheckCommonConfig(t *testing.T) {
 		"invalid key bits": {
 			config: ProviderConfig{
 				Client:    client,
-				CreateKey: true,
-				KeyName:   "new-key",
+				KeyName:   testKeyName,
 				Backend:   backend,
 				CacheSize: 1,
 				KeyBits:   3,
@@ -122,7 +109,7 @@ func TestCheckCommonConfig(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			err := CheckCommonConfig(tc.config)
+			err := checkCommonConfig(tc.config)
 			if tc.expectedError != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expectedError)
@@ -140,26 +127,35 @@ func TestCheckCommonConfig(t *testing.T) {
 func TestDecryptKey(t *testing.T) {
 	t.Parallel()
 
-	testDEK, err := uuid.GenerateRandomBytes(32)
-	require.NoError(t, err)
-
-	encodedDEK := base64.StdEncoding.EncodeToString(testDEK)
-
 	client, backend := providerTestSetup(t)
-	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s/rotate", backend, testKeyName), map[string]interface{}{})
+	_, err := client.Logical().Write(fmt.Sprintf("%s/keys/%s/rotate", backend, testKeyName), map[string]interface{}{})
 	require.NoError(t, err)
 
-	resp, err := client.Logical().Write(fmt.Sprintf("%s/encrypt/%s", backend, testKeyName), map[string]interface{}{"plaintext": encodedDEK, "key_version": 1})
+	resp, err := client.Logical().Write(fmt.Sprintf("%s/datakey/plaintext/%s", backend, testKeyName), map[string]interface{}{"key_version": 1})
 	require.NoError(t, err)
+	require.NotNil(t, resp.Data)
 
 	v1Ciphertext, ok := resp.Data["ciphertext"].(string)
 	require.True(t, ok)
 
-	resp, err = client.Logical().Write(fmt.Sprintf("%s/encrypt/%s", backend, testKeyName), map[string]interface{}{"plaintext": encodedDEK})
+	v1PlaintextEncoded, ok := resp.Data["plaintext"].(string)
+	require.True(t, ok)
+
+	v1Plaintext, err := base64.StdEncoding.DecodeString(v1PlaintextEncoded)
 	require.NoError(t, err)
+
+	resp, err = client.Logical().Write(fmt.Sprintf("%s/datakey/plaintext/%s", backend, testKeyName), map[string]interface{}{"key_version": 2})
+	require.NoError(t, err)
+	require.NotNil(t, resp.Data)
 
 	v2Ciphertext, ok := resp.Data["ciphertext"].(string)
 	require.True(t, ok)
+
+	v2PlaintextEncoded, ok := resp.Data["plaintext"].(string)
+	require.True(t, ok)
+
+	v2Plaintext, err := base64.StdEncoding.DecodeString(v2PlaintextEncoded)
+	require.NoError(t, err)
 
 	testCases := map[string]struct {
 		backend     string
@@ -188,13 +184,13 @@ func TestDecryptKey(t *testing.T) {
 			backend:     backend,
 			keyName:     testKeyName,
 			edk:         v1Ciphertext,
-			expectedKey: testDEK,
+			expectedKey: v1Plaintext,
 		},
 		"key version 2": {
 			backend:     backend,
 			keyName:     testKeyName,
 			edk:         v2Ciphertext,
-			expectedKey: testDEK,
+			expectedKey: v2Plaintext,
 		},
 	}
 
@@ -202,7 +198,7 @@ func TestDecryptKey(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			dek, err := DecryptKey(tc.backend, tc.keyName, tc.edk, client)
+			dek, err := decryptKey(tc.backend, tc.keyName, tc.edk, client)
 			if tc.expectErr {
 				require.Error(t, err)
 			} else {
