@@ -8,6 +8,10 @@ BUILD_TAGS+=enterprise
 
 default: dev
 
+.PHONY: go-version-check
+go-version-check: ## Check go version
+	@sh -c $(CURDIR)/scripts/goversioncheck.sh
+
 .PHONY: dev
 dev: fmtcheck
 	@CGO_ENABLED=0 BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/build.sh'"
