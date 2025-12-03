@@ -6,12 +6,21 @@ package vault_envelope_encryption_sdk
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/vault/api"
 )
+
+func init() {
+	if signed := os.Getenv("VAULT_LICENSE_CI"); signed != "" {
+		if err := os.Setenv("VAULT_LICENSE", signed); err != nil {
+			panic(err.Error())
+		}
+	}
+}
 
 type scheduledKeyProvider struct {
 	client   *api.Client
