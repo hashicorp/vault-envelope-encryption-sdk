@@ -40,7 +40,7 @@ func checkCommonConfig(config ProviderConfig) error {
 		return errors.New("missing client")
 	}
 
-	if config.CacheSize <= 0 {
+	if config.CacheSize < 0 {
 		return errors.New("cache size must be greater than zero")
 	}
 
