@@ -4,14 +4,38 @@
 package vault_envelope_encryption_sdk
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/golang/protobuf/proto"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/tink-crypto/tink-go/v2/streamingaead/subtle"
 )
 
+var MAGIC = []byte("VEE✉")
+
+const (
+	VERSION       = 1
+	algorithmName = "OAE2-AES256-GCM96-HKDF"
+)
+
+func NewHeader() *Header {
+	return &Header{
+		Version: VERSION,
+		Data: &Header_V1{
+			V1: &HeaderV1{
+				KeyData: &KeyData{},
+			},
+		},
+	}
+}
+
 func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []byte) (io.WriteCloser, error) {
+	if header == nil {
+		header = NewHeader()
+	}
 	if kp == nil {
 		return nil, fmt.Errorf("key provider was nil")
 	}
@@ -29,7 +53,10 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []b
 		return nil, fmt.Errorf("error getting key pair: %v", err)
 	}
 
-	keyData := header.GetV1().KeyData
+	hd := header.GetV1()
+	hd.Algorithm = algorithmName
+	hd.Created = timestamppb.New(time.Now())
+	keyData := hd.KeyData
 	keyData.Edk = []byte(keyPair.EDK)
 
 	headerBytes, err := proto.Marshal(header)
@@ -37,7 +64,15 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []b
 		return nil, fmt.Errorf("error marshalling header: %v", err)
 	}
 
+	_, err = dest.Write(MAGIC)
+	if err != nil {
+		return nil, fmt.Errorf("error writing magic bytes: %err")
+	}
+
 	_, err = dest.Write(headerBytes)
+	if err != nil {
+		return nil, fmt.Errorf("error writing header: %err")
+	}
 
 	aead, err := subtle.NewAESGCMHKDF(keyPair.DEK, "SHA256", len(keyPair.DEK), 1048576, 0)
 	if err != nil {
@@ -69,17 +104,9 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *uint
 		return nil, fmt.Errorf("header channel was nil")
 	}
 
-	headerLen := *length
-	headerBytes := make([]byte, headerLen)
-	_, err := src.Read(headerBytes)
+	header, err := ReadHeader(src, length)
 	if err != nil {
-		return nil, fmt.Errorf("error reading header: %v", err)
-	}
-
-	header := &Header{}
-	err = proto.Unmarshal(headerBytes, header)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling header: %v", err)
+		return nil, err
 	}
 
 	select {
@@ -103,4 +130,29 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *uint
 	}
 
 	return r, nil
+}
+
+func ReadHeader(src io.Reader, length *uint64) (*Header, error) {
+	magicBytes := make([]byte, len(MAGIC))
+	_, err := src.Read(magicBytes)
+	if err != nil {
+		return nil, fmt.Errorf("error reading magic value: %v", err)
+	}
+	if !bytes.Equal(magicBytes, MAGIC) {
+		return nil, fmt.Errorf("invalid envelope encryption magic value")
+	}
+
+	headerLen := *length
+	headerBytes := make([]byte, headerLen)
+	_, err = src.Read(headerBytes)
+	if err != nil {
+		return nil, fmt.Errorf("error reading header: %v", err)
+	}
+
+	header := &Header{}
+	err = proto.Unmarshal(headerBytes, header)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling header: %v", err)
+	}
+	return header, nil
 }

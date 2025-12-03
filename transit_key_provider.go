@@ -35,17 +35,11 @@ func NewTransitKeyProvider(config ProviderConfig) (KeyProvider, error) {
 		keyVersion: config.KeyVersion,
 	}
 
-<<<<<<< HEAD
 	if config.CacheSize > 0 {
 		provider.cache, err = lru.New(config.CacheSize)
 		if err != nil {
 			return nil, fmt.Errorf("error initializing cache: %v", err)
 		}
-=======
-	provider.cache, err = lru.New(config.CacheSize)
-	if err != nil {
-		return nil, fmt.Errorf("error initializing cache: %v", err)
->>>>>>> origin/rculpepper/envelope-encryption
 	}
 
 	return provider, nil
@@ -91,7 +85,6 @@ func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 }
 
 func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
-<<<<<<< HEAD
 	if p.cache != nil {
 		if v, ok := p.cache.Get(edk); ok {
 			dek, ok := v.([]byte)
@@ -101,15 +94,6 @@ func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 
 			return dek, nil
 		}
-=======
-	if v, ok := p.cache.Get(edk); ok {
-		dek, ok := v.([]byte)
-		if !ok {
-			return nil, fmt.Errorf("got unexpected type %T from cache value", v)
-		}
-
-		return dek, nil
->>>>>>> origin/rculpepper/envelope-encryption
 	}
 
 	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
@@ -117,12 +101,8 @@ func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 		return nil, err
 	}
 
-<<<<<<< HEAD
 	if p.cache != nil {
 		p.cache.Add(edk, dek)
 	}
-=======
-	p.cache.Add(edk, dek)
->>>>>>> origin/rculpepper/envelope-encryption
 	return dek, nil
 }
