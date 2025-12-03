@@ -48,9 +48,11 @@ func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
 		keys:     make(map[string][]string),
 	}
 
-	provider.cache, err = lru.New(config.CacheSize)
-	if err != nil {
-		return nil, fmt.Errorf("error initializing cache: %v", err)
+	if config.CacheSize > 0 {
+		provider.cache, err = lru.New(config.CacheSize)
+		if err != nil {
+			return nil, fmt.Errorf("error initializing cache: %v", err)
+		}
 	}
 
 	now := time.Now()
@@ -130,7 +132,9 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 		return nil, err
 	}
 
-	p.cache.Add(edk, dek)
+	if p.cache != nil {
+		p.cache.Add(edk, dek)
+	}
 
 	return &KeyPair{
 		EDK: edk,
@@ -153,6 +157,8 @@ func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 		return nil, err
 	}
 
-	p.cache.Add(edk, dek)
+	if p.cache != nil {
+		p.cache.Add(edk, dek)
+	}
 	return dek, nil
 }

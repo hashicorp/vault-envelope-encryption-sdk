@@ -72,7 +72,6 @@ func TestCheckCommonConfig(t *testing.T) {
 				Backend:   backend,
 				CacheSize: 0,
 			},
-			expectedError: "cache size must be greater than zero",
 		},
 		"negative cache size": {
 			config: ProviderConfig{
