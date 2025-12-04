@@ -3,9 +3,12 @@ module github.com/hashicorp/vault-envelope-encryption-sdk
 go 1.25.3
 
 require (
+	github.com/golang/protobuf v1.5.0
 	github.com/hashicorp/go-uuid v1.0.3
+	github.com/hashicorp/golang-lru v1.0.2
 	github.com/hashicorp/vault/api v1.22.0
 	github.com/stretchr/testify v1.11.1
+	github.com/tink-crypto/tink-go/v2 v2.5.0
 	google.golang.org/protobuf v1.36.10
 )
 
@@ -30,6 +33,7 @@ require (
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	golang.org/x/crypto v0.42.0 // indirect
 	golang.org/x/net v0.44.0 // indirect
+	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/text v0.29.0 // indirect
 	golang.org/x/time v0.13.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect

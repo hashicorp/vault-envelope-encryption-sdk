@@ -1,7 +1,7 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	"encoding/base64"
@@ -18,6 +18,7 @@ type ProviderConfig struct {
 	CacheSize        int
 	KeyName          string
 	Backend          string
+	Namespace        string
 	KeyVersion       int
 	KeyBits          int
 	DaysPast         int
@@ -33,6 +34,7 @@ type KeyPair struct {
 type KeyProvider interface {
 	GetKeyPair() (*KeyPair, error)
 	DecryptKeyPair(edk string) ([]byte, error)
+	GetKeyData() KeyData
 }
 
 func checkCommonConfig(config ProviderConfig) error {

@@ -65,7 +65,7 @@ jobs:
       matrix:
         image:
           - "vault-enterprise:1.21.0-ent"
-          - "vault:latest"
+          - "vault-enterprise:latest"
     services:
       vault:
         image: hashicorp/${{ matrix.image }}
