@@ -1,7 +1,7 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	"errors"
@@ -23,12 +23,14 @@ func init() {
 }
 
 type scheduledKeyProvider struct {
-	client   *api.Client
-	cache    *lru.Cache
-	keyName  string
-	backend  string
-	interval time.Duration
-	keys     map[string][]string
+	client     *api.Client
+	cache      *lru.Cache
+	keyName    string
+	keyVersion int
+	backend    string
+	namespace  string
+	interval   time.Duration
+	keys       map[string][]string
 }
 
 func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
@@ -50,11 +52,13 @@ func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
 	}
 
 	provider := &scheduledKeyProvider{
-		client:   config.Client,
-		keyName:  config.KeyName,
-		backend:  config.Backend,
-		interval: config.DailyKeyInterval,
-		keys:     make(map[string][]string),
+		client:     config.Client,
+		keyName:    config.KeyName,
+		keyVersion: config.KeyVersion,
+		backend:    config.Backend,
+		namespace:  config.Namespace,
+		interval:   config.DailyKeyInterval,
+		keys:       make(map[string][]string),
 	}
 
 	provider.cache, err = lru.New(config.CacheSize)
@@ -164,4 +168,13 @@ func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 
 	p.cache.Add(edk, dek)
 	return dek, nil
+}
+
+func (p *scheduledKeyProvider) GetKeyData() KeyData {
+	return KeyData{
+		KeyName:    &p.keyName,
+		KeyVersion: uint32(p.keyVersion),
+		MountPath:  &p.backend,
+		Namespace:  &p.namespace,
+	}
 }

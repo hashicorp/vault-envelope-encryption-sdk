@@ -1,7 +1,7 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	"encoding/base64"
@@ -17,6 +17,7 @@ type transitKeyProvider struct {
 	cache      *lru.Cache
 	keyName    string
 	backend    string
+	namespace  string
 	keyBits    int
 	keyVersion int
 }
@@ -31,6 +32,7 @@ func NewTransitKeyProvider(config ProviderConfig) (KeyProvider, error) {
 		client:     config.Client,
 		keyName:    config.KeyName,
 		backend:    config.Backend,
+		namespace:  config.Namespace,
 		keyBits:    config.KeyBits,
 		keyVersion: config.KeyVersion,
 	}
@@ -99,4 +101,13 @@ func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 
 	p.cache.Add(edk, dek)
 	return dek, nil
+}
+
+func (p *transitKeyProvider) GetKeyData() KeyData {
+	return KeyData{
+		KeyName:    &p.keyName,
+		KeyVersion: uint32(p.keyVersion),
+		MountPath:  &p.backend,
+		Namespace:  &p.namespace,
+	}
 }

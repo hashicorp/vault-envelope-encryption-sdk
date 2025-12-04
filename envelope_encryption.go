@@ -1,7 +1,7 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	"fmt"
@@ -10,6 +10,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/tink-crypto/tink-go/v2/streamingaead/subtle"
 )
+
+var MAGIC = []byte("VEE✉")
 
 func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []byte) (io.WriteCloser, error) {
 	if kp == nil {
@@ -29,15 +31,24 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []b
 		return nil, fmt.Errorf("error getting key pair: %v", err)
 	}
 
-	keyData := header.GetV1().KeyData
+	keyData := kp.GetKeyData()
 	keyData.Edk = []byte(keyPair.EDK)
+	header.GetV1().KeyData = &keyData
 
 	headerBytes, err := proto.Marshal(header)
 	if err != nil {
 		return nil, fmt.Errorf("error marshalling header: %v", err)
 	}
 
+	_, err = dest.Write(MAGIC)
+	if err != nil {
+		return nil, fmt.Errorf("error writing magic value: %v", err)
+	}
+
 	_, err = dest.Write(headerBytes)
+	if err != nil {
+		return nil, fmt.Errorf("error writing header: %v", err)
+	}
 
 	aead, err := subtle.NewAESGCMHKDF(keyPair.DEK, "SHA256", len(keyPair.DEK), 1048576, 0)
 	if err != nil {
@@ -69,9 +80,15 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *uint
 		return nil, fmt.Errorf("header channel was nil")
 	}
 
+	magicBytes := make([]byte, len(MAGIC))
+	_, err := src.Read(magicBytes)
+	if err != nil {
+		return nil, fmt.Errorf("error reading magic value: %v", err)
+	}
+
 	headerLen := *length
 	headerBytes := make([]byte, headerLen)
-	_, err := src.Read(headerBytes)
+	_, err = src.Read(headerBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error reading header: %v", err)
 	}

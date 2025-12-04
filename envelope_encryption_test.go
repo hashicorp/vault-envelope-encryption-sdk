@@ -1,7 +1,7 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	"io"
@@ -210,7 +210,7 @@ func TestNewDecryptingReader(t *testing.T) {
 			key, err := provider.GetKeyPair()
 			require.NoError(t, err)
 
-			headerLen := createCiphertext(t, ciphertextPath+name, key)
+			headerLen := createCiphertext(t, backend, ciphertextPath+name, key)
 
 			ciphertextFile, err := os.Open(ciphertextPath + name)
 			require.NoError(t, err)
@@ -323,7 +323,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testEncryptDecryptWithProvider(t, provider)
+	testEncryptDecryptWithProvider(t, backend, provider)
 
 	scheduledProvider, err := NewScheduledKeyProvider(ProviderConfig{
 		Client:           client,
@@ -336,10 +336,10 @@ func TestEncryptDecrypt(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testEncryptDecryptWithProvider(t, scheduledProvider)
+	testEncryptDecryptWithProvider(t, backend, scheduledProvider)
 }
 
-func testEncryptDecryptWithProvider(t *testing.T, provider KeyProvider) {
+func testEncryptDecryptWithProvider(t *testing.T, backend string, provider KeyProvider) {
 	dir, err := os.MkdirTemp("", "streamingaead")
 	if err != nil {
 		t.Fatal(err)
@@ -349,7 +349,6 @@ func testEncryptDecryptWithProvider(t *testing.T, provider KeyProvider) {
 	plaintext := []byte("test plaintext")
 
 	keyName := testKeyName
-	backend := "transit"
 
 	aad := []byte("test aad")
 
@@ -406,8 +405,7 @@ func testEncryptDecryptWithProvider(t *testing.T, provider KeyProvider) {
 	require.NoError(t, ciphertextFile.Close())
 }
 
-func createCiphertext(t *testing.T, fileName string, key *KeyPair) uint64 {
-	backend := "transit"
+func createCiphertext(t *testing.T, backend, fileName string, key *KeyPair) uint64 {
 	keyName := testKeyName
 
 	header := &Header{
@@ -427,6 +425,9 @@ func createCiphertext(t *testing.T, fileName string, key *KeyPair) uint64 {
 	headerLen := uint64(len(headerBytes))
 
 	ciphertextFile, err := os.Create(fileName)
+	require.NoError(t, err)
+
+	_, err = ciphertextFile.Write(MAGIC)
 	require.NoError(t, err)
 
 	_, err = ciphertextFile.Write(headerBytes)
