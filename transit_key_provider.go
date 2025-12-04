@@ -17,7 +17,6 @@ type transitKeyProvider struct {
 	cache      *lru.Cache
 	keyName    string
 	backend    string
-	namespace  string
 	keyBits    int
 	keyVersion int
 }
@@ -32,7 +31,6 @@ func NewTransitKeyProvider(config ProviderConfig) (KeyProvider, error) {
 		client:     config.Client,
 		keyName:    config.KeyName,
 		backend:    config.Backend,
-		namespace:  config.Namespace,
 		keyBits:    config.KeyBits,
 		keyVersion: config.KeyVersion,
 	}
@@ -104,10 +102,12 @@ func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 }
 
 func (p *transitKeyProvider) GetKeyData() KeyData {
+	namespace := p.client.Namespace()
+
 	return KeyData{
 		KeyName:    &p.keyName,
 		KeyVersion: uint32(p.keyVersion),
 		MountPath:  &p.backend,
-		Namespace:  &p.namespace,
+		Namespace:  &namespace,
 	}
 }

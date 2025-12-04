@@ -28,7 +28,6 @@ type scheduledKeyProvider struct {
 	keyName    string
 	keyVersion int
 	backend    string
-	namespace  string
 	interval   time.Duration
 	keys       map[string][]string
 }
@@ -56,7 +55,6 @@ func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
 		keyName:    config.KeyName,
 		keyVersion: config.KeyVersion,
 		backend:    config.Backend,
-		namespace:  config.Namespace,
 		interval:   config.DailyKeyInterval,
 		keys:       make(map[string][]string),
 	}
@@ -171,10 +169,12 @@ func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 }
 
 func (p *scheduledKeyProvider) GetKeyData() KeyData {
+	namespace := p.client.Namespace()
+
 	return KeyData{
 		KeyName:    &p.keyName,
 		KeyVersion: uint32(p.keyVersion),
 		MountPath:  &p.backend,
-		Namespace:  &p.namespace,
+		Namespace:  &namespace,
 	}
 }
