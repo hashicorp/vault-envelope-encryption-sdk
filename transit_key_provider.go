@@ -21,6 +21,8 @@ type transitKeyProvider struct {
 	keyVersion int
 }
 
+// NewTransitKeyProvider creates a KeyProvider that uses the Transit key
+// specified in config to generate and encrypt data keys.
 func NewTransitKeyProvider(config ProviderConfig) (KeyProvider, error) {
 	err := checkCommonConfig(config)
 	if err != nil {

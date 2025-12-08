@@ -6,21 +6,12 @@ package envelope
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/vault/api"
 )
-
-func init() {
-	if signed := os.Getenv("VAULT_LICENSE_CI"); signed != "" {
-		if err := os.Setenv("VAULT_LICENSE", signed); err != nil {
-			panic(err.Error())
-		}
-	}
-}
 
 type scheduledKeyProvider struct {
 	client     *api.Client
@@ -32,6 +23,9 @@ type scheduledKeyProvider struct {
 	keys       map[string][]string
 }
 
+// NewScheduledKeyProvider creates a KeyProvider using the provided config.
+// This KeyProvider generates all data keys upon its creation and associates
+// each key with a time interval.
 func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
 	err := checkCommonConfig(config)
 	if err != nil {

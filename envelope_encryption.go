@@ -13,6 +13,10 @@ import (
 
 var MAGIC = []byte("VEE✉")
 
+// NewEncryptingWriter creates a writer that encrypts all data using a key from
+// the KeyProvider kp then writes the data to Writer dest. It populates the given
+// Header with key information from the KeyProvider. A magic value and the
+// header are written in cleartext before the writer is returned.
 func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []byte) (io.WriteCloser, error) {
 	if kp == nil {
 		return nil, fmt.Errorf("key provider was nil")
@@ -63,6 +67,11 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []b
 	return w, nil
 }
 
+// NewDecryptingReader creates a Reader from src that decrypts data as it reads.
+// It reads the Header bytes first and writes the header to headerOut. It then
+// retrieves the EDK from the header and attempts to decrypt it using kp. If the
+// decryption succeeds, it returns a Reader that will decrypt the bytes from src
+// as they are read.
 func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *uint64, headerOut chan *Header) (io.Reader, error) {
 	if kp == nil {
 		return nil, fmt.Errorf("key provider was nil")

@@ -13,12 +13,13 @@ import (
 	"github.com/hashicorp/vault/api"
 )
 
+// ProviderConfig contains config options for creating a KeyProvider
+// using NewTransitKeyProvider or NewScheduledKeyProvider.
 type ProviderConfig struct {
 	Client           *api.Client
 	CacheSize        int
 	KeyName          string
 	Backend          string
-	Namespace        string
 	KeyVersion       int
 	KeyBits          int
 	DaysPast         int
@@ -26,11 +27,16 @@ type ProviderConfig struct {
 	DailyKeyInterval time.Duration
 }
 
+// KeyPair contains a Data Encryption Key (DEK)
+// and the Encrypted Data Key (EDK) resulting from
+// encrypting the DEK with a Transit key.
 type KeyPair struct {
 	EDK string
 	DEK []byte
 }
 
+// KeyProvider provides functions for managing data
+// keys using the Transit secrets engine.
 type KeyProvider interface {
 	GetKeyPair() (*KeyPair, error)
 	DecryptKeyPair(edk string) ([]byte, error)
