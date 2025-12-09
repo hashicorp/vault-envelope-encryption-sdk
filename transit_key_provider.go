@@ -21,7 +21,7 @@ type transitKeyProvider struct {
 	keyVersion int
 }
 
-func NewTransitKeyProvider(config ProviderConfig) (KeyProvider, error) {
+func NewTransitKeyProvider(config ProviderConfig) (*transitKeyProvider, error) {
 	err := checkCommonConfig(config)
 	if err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func NewTransitKeyProvider(config ProviderConfig) (KeyProvider, error) {
 
 func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 	data := map[string]interface{}{
-		"version": p.keyVersion,
+		"key_version": p.keyVersion,
 	}
 
 	if p.keyBits != 0 {
