@@ -18,7 +18,6 @@ type ProviderConfig struct {
 	CacheSize        int
 	KeyName          string
 	Backend          string
-	Namespace        string
 	KeyVersion       int
 	KeyBits          int
 	DaysPast         int
@@ -42,8 +41,8 @@ func checkCommonConfig(config ProviderConfig) error {
 		return errors.New("missing client")
 	}
 
-	if config.CacheSize <= 0 {
-		return errors.New("cache size must be greater than zero")
+	if config.CacheSize < 0 {
+		return errors.New("cache size must not be negative")
 	}
 
 	if config.Backend == "" {

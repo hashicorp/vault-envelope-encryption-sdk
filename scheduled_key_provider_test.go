@@ -88,7 +88,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 				DaysFuture:       1,
 				DailyKeyInterval: 24 * time.Hour,
 			},
-			expectedError: "cache size must be greater than zero",
+			expectedNumKeys: 3,
 		},
 		"negative cache size": {
 			config: ProviderConfig{
@@ -100,7 +100,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 				DaysFuture:       1,
 				DailyKeyInterval: 24 * time.Hour,
 			},
-			expectedError: "cache size must be greater than zero",
+			expectedError: "cache size must not be negative",
 		},
 		"zero key interval": {
 			config: ProviderConfig{
@@ -192,16 +192,13 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
 
-				scheduledProvider, ok := provider.(*scheduledKeyProvider)
-				require.True(t, ok)
-
-				require.Equal(t, tc.config.KeyName, scheduledProvider.keyName)
-				require.Equal(t, tc.config.Backend, scheduledProvider.backend)
-				require.Equal(t, tc.config.DailyKeyInterval, scheduledProvider.interval)
-				require.Equal(t, tc.config.DaysPast+tc.config.DaysFuture+1, len(scheduledProvider.keys))
+				require.Equal(t, tc.config.KeyName, provider.keyName)
+				require.Equal(t, tc.config.Backend, provider.backend)
+				require.Equal(t, tc.config.DailyKeyInterval, provider.interval)
+				require.Equal(t, tc.config.DaysPast+tc.config.DaysFuture+1, len(provider.keys))
 
 				numKeys := 0
-				for _, key := range scheduledProvider.keys {
+				for _, key := range provider.keys {
 					numKeys += len(key)
 				}
 
@@ -214,9 +211,22 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
 	client, backend := providerTestSetup(t)
 
-	testCases := map[string]time.Duration{
-		"single key per day": 24 * time.Hour,
-		"key per hour":       time.Hour,
+	testCases := map[string]struct {
+		interval  time.Duration
+		cacheSize int
+	}{
+		"single key per day": {
+			interval:  24 * time.Hour,
+			cacheSize: 1,
+		},
+		"key per hour": {
+			interval:  time.Hour,
+			cacheSize: 1,
+		},
+		"no caching": {
+			interval:  24 * time.Hour,
+			cacheSize: 0,
+		},
 	}
 
 	for name, tc := range testCases {
@@ -224,11 +234,11 @@ func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
 			t.Parallel()
 
 			provider, err := NewScheduledKeyProvider(ProviderConfig{
-				DailyKeyInterval: tc,
+				DailyKeyInterval: tc.interval,
 				Client:           client,
 				Backend:          backend,
 				KeyName:          testKeyName,
-				CacheSize:        1,
+				CacheSize:        tc.cacheSize,
 			})
 			require.NoError(t, err)
 
@@ -236,6 +246,13 @@ func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEmpty(t, key)
 			require.Equal(t, 32, len(key.DEK))
+
+			if tc.cacheSize > 0 {
+				require.NotNil(t, provider.cache)
+				require.Equal(t, tc.cacheSize, provider.cache.Len())
+			} else {
+				require.Nil(t, provider.cache)
+			}
 		})
 	}
 }
@@ -243,6 +260,7 @@ func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
 func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 	client, backend := providerTestSetup(t)
 
+	// test with caching
 	provider, err := NewScheduledKeyProvider(ProviderConfig{
 		DailyKeyInterval: 24 * time.Hour,
 		Client:           client,
@@ -259,6 +277,43 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, key.DEK, dek)
 
+	require.NotNil(t, provider.cache)
+	require.Equal(t, 1, provider.cache.Len())
+	require.True(t, provider.cache.Contains(key.EDK))
+
+	// make it impossible for the provider to reach the key
+	// to validate that it's loading from the cache
+	provider.keyName = "bad-key"
+
+	dek, err = provider.DecryptKeyPair(key.EDK)
+	require.NoError(t, err)
+	require.Equal(t, key.DEK, dek)
+
+	// test without caching
+	provider, err = NewScheduledKeyProvider(ProviderConfig{
+		DailyKeyInterval: 24 * time.Hour,
+		Client:           client,
+		Backend:          backend,
+		KeyName:          testKeyName,
+		CacheSize:        0,
+	})
+	require.NoError(t, err)
+
+	key, err = provider.GetKeyPair()
+	require.NoError(t, err)
+
+	dek, err = provider.DecryptKeyPair(key.EDK)
+	require.NoError(t, err)
+	require.Equal(t, key.DEK, dek)
+
+	require.Nil(t, provider.cache)
+
+	// this should fail without caching
+	provider.keyName = "bad-key"
+	dek, err = provider.DecryptKeyPair(key.EDK)
+	require.Error(t, err)
+
+	// error case
 	_, err = provider.DecryptKeyPair("invalid-ciphertext")
 	require.Error(t, err)
 }

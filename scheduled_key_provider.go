@@ -6,21 +6,12 @@ package envelope
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/vault/api"
 )
-
-func init() {
-	if signed := os.Getenv("VAULT_LICENSE_CI"); signed != "" {
-		if err := os.Setenv("VAULT_LICENSE", signed); err != nil {
-			panic(err.Error())
-		}
-	}
-}
 
 type scheduledKeyProvider struct {
 	client     *api.Client
@@ -32,7 +23,7 @@ type scheduledKeyProvider struct {
 	keys       map[string][]string
 }
 
-func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
+func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, error) {
 	err := checkCommonConfig(config)
 	if err != nil {
 		return nil, err
@@ -59,9 +50,11 @@ func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
 		keys:       make(map[string][]string),
 	}
 
-	provider.cache, err = lru.New(config.CacheSize)
-	if err != nil {
-		return nil, fmt.Errorf("error initializing cache: %v", err)
+	if config.CacheSize > 0 {
+		provider.cache, err = lru.New(config.CacheSize)
+		if err != nil {
+			return nil, fmt.Errorf("error initializing cache: %v", err)
+		}
 	}
 
 	now := time.Now()
@@ -116,7 +109,7 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 		return nil, errors.New("no keys configured for the current date")
 	}
 
-	timeElapsedInDay := now.Sub(time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC))
+	timeElapsedInDay := now.Sub(time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()))
 	keyIndex := int(timeElapsedInDay / p.interval)
 
 	if keyIndex >= len(todayKeys) {
@@ -124,16 +117,18 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 	}
 
 	edk := todayKeys[keyIndex]
-	if v, ok := p.cache.Get(edk); ok {
-		dek, ok := v.([]byte)
-		if !ok {
-			return nil, fmt.Errorf("got unexpected type %T from cache value", v)
-		}
+	if p.cache != nil {
+		if v, ok := p.cache.Get(edk); ok {
+			dek, ok := v.([]byte)
+			if !ok {
+				return nil, fmt.Errorf("got unexpected type %T from cache value", v)
+			}
 
-		return &KeyPair{
-			EDK: edk,
-			DEK: dek,
-		}, nil
+			return &KeyPair{
+				EDK: edk,
+				DEK: dek,
+			}, nil
+		}
 	}
 
 	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
@@ -141,7 +136,9 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 		return nil, err
 	}
 
-	p.cache.Add(edk, dek)
+	if p.cache != nil {
+		p.cache.Add(edk, dek)
+	}
 
 	return &KeyPair{
 		EDK: edk,
@@ -150,13 +147,15 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 }
 
 func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
-	if v, ok := p.cache.Get(edk); ok {
-		dek, ok := v.([]byte)
-		if !ok {
-			return nil, fmt.Errorf("got unexpected type %T from cache value", v)
-		}
+	if p.cache != nil {
+		if v, ok := p.cache.Get(edk); ok {
+			dek, ok := v.([]byte)
+			if !ok {
+				return nil, fmt.Errorf("got unexpected type %T from cache value", v)
+			}
 
-		return dek, nil
+			return dek, nil
+		}
 	}
 
 	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
@@ -164,7 +163,9 @@ func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 		return nil, err
 	}
 
-	p.cache.Add(edk, dek)
+	if p.cache != nil {
+		p.cache.Add(edk, dek)
+	}
 	return dek, nil
 }
 

@@ -21,7 +21,7 @@ type transitKeyProvider struct {
 	keyVersion int
 }
 
-func NewTransitKeyProvider(config ProviderConfig) (KeyProvider, error) {
+func NewTransitKeyProvider(config ProviderConfig) (*transitKeyProvider, error) {
 	err := checkCommonConfig(config)
 	if err != nil {
 		return nil, err
@@ -35,9 +35,11 @@ func NewTransitKeyProvider(config ProviderConfig) (KeyProvider, error) {
 		keyVersion: config.KeyVersion,
 	}
 
-	provider.cache, err = lru.New(config.CacheSize)
-	if err != nil {
-		return nil, fmt.Errorf("error initializing cache: %v", err)
+	if config.CacheSize > 0 {
+		provider.cache, err = lru.New(config.CacheSize)
+		if err != nil {
+			return nil, fmt.Errorf("error initializing cache: %v", err)
+		}
 	}
 
 	return provider, nil
@@ -45,7 +47,7 @@ func NewTransitKeyProvider(config ProviderConfig) (KeyProvider, error) {
 
 func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 	data := map[string]interface{}{
-		"version": p.keyVersion,
+		"key_version": p.keyVersion,
 	}
 
 	if p.keyBits != 0 {
@@ -83,13 +85,15 @@ func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 }
 
 func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
-	if v, ok := p.cache.Get(edk); ok {
-		dek, ok := v.([]byte)
-		if !ok {
-			return nil, fmt.Errorf("got unexpected type %T from cache value", v)
-		}
+	if p.cache != nil {
+		if v, ok := p.cache.Get(edk); ok {
+			dek, ok := v.([]byte)
+			if !ok {
+				return nil, fmt.Errorf("got unexpected type %T from cache value", v)
+			}
 
-		return dek, nil
+			return dek, nil
+		}
 	}
 
 	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
@@ -97,7 +101,9 @@ func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 		return nil, err
 	}
 
-	p.cache.Add(edk, dek)
+	if p.cache != nil {
+		p.cache.Add(edk, dek)
+	}
 	return dek, nil
 }
 

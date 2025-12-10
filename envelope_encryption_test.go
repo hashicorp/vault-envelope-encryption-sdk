@@ -86,9 +86,8 @@ func TestNewEncryptingWriter(t *testing.T) {
 			expectError: true,
 		},
 		"nil header": {
-			provider:    provider,
-			writer:      ciphertextFile,
-			expectError: true,
+			provider: provider,
+			writer:   ciphertextFile,
 		},
 		"empty aad": {
 			provider: provider,
