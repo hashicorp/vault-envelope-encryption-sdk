@@ -41,7 +41,7 @@ func checkCommonConfig(config ProviderConfig) error {
 	}
 
 	if config.CacheSize < 0 {
-		return errors.New("cache size must be greater than zero")
+		return errors.New("cache size must not be negative")
 	}
 
 	if config.Backend == "" {

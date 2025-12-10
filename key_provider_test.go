@@ -80,7 +80,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Backend:   backend,
 				CacheSize: -1,
 			},
-			expectedError: "cache size must be greater than zero",
+			expectedError: "cache size must not be negative",
 		},
 		"invalid key version": {
 			config: ProviderConfig{
