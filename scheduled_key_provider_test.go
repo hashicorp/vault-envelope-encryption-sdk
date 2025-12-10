@@ -100,7 +100,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 				DaysFuture:       1,
 				DailyKeyInterval: 24 * time.Hour,
 			},
-			expectedError: "cache size must be greater than zero",
+			expectedError: "cache size must not be negative",
 		},
 		"zero key interval": {
 			config: ProviderConfig{
