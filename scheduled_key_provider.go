@@ -102,6 +102,9 @@ func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
 	return provider, nil
 }
 
+// GetKeyPair returns the KeyPair associated with the current time.
+// Subsequent calls may return the same key if the calls are made within
+// the same time interval.
 func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 	now := time.Now()
 	date := now.Format("2006-01-02")
@@ -143,6 +146,7 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 	}, nil
 }
 
+// DecryptKeyPair returns the plaintext DEK for the input EDK
 func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 	if v, ok := p.cache.Get(edk); ok {
 		dek, ok := v.([]byte)
@@ -162,6 +166,8 @@ func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 	return dek, nil
 }
 
+// GetKeyData returns a KeyData struct with the KeyName, KeyVersion,
+// MountPath, and Namespace fields from the configured Transit key.
 func (p *scheduledKeyProvider) GetKeyData() KeyData {
 	namespace := p.client.Namespace()
 

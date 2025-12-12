@@ -45,6 +45,8 @@ func NewTransitKeyProvider(config ProviderConfig) (KeyProvider, error) {
 	return provider, nil
 }
 
+// GetKeyPair returns a KeyPair containing a new data key and its encryption
+// under the configured Transit key. Each call returns a distinct key.
 func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 	data := map[string]interface{}{
 		"version": p.keyVersion,
@@ -84,6 +86,7 @@ func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 	}, nil
 }
 
+// DecryptKeyPair returns the plaintext DEK for the input EDK
 func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 	if v, ok := p.cache.Get(edk); ok {
 		dek, ok := v.([]byte)
@@ -103,6 +106,8 @@ func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 	return dek, nil
 }
 
+// GetKeyData returns a KeyData struct with the KeyName, KeyVersion,
+// MountPath, and Namespace fields from the configured Transit key.
 func (p *transitKeyProvider) GetKeyData() KeyData {
 	namespace := p.client.Namespace()
 
