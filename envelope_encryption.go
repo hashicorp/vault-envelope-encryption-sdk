@@ -17,8 +17,10 @@ import (
 var MAGIC = []byte("VEE✉")
 
 const (
-	VERSION       = 1
-	algorithmName = "OAE2-AES256-GCM96-HKDF"
+	VERSION                 = 1
+	algorithmName           = "OAE2-AES256-GCM96-HKDF"
+	defaultHashAlgo         = "SHA256"
+	defaultCiphertextLength = 1024768
 )
 
 func NewHeader() *Header {
@@ -88,6 +90,7 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []b
 		return nil, fmt.Errorf("error commiting header: %v", err)
 	}
 
+	if header.GetV1().
 	aead, err := subtle.NewAESGCMHKDF(keyPair.DEK, "SHA256", len(keyPair.DEK), 1048576, 0)
 	if err != nil {
 		return nil, fmt.Errorf("error creating aead: %v", err)
