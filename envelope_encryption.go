@@ -5,6 +5,7 @@ package envelope
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 
@@ -52,7 +53,8 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []b
 	}
 
 	keyData := kp.GetKeyData()
-	keyData.Edk = []byte(keyPair.EDK)
+	keyData.Edk = keyPair.EDK
+	keyData.KeyVersion = uint32(keyPair.KeyVersion)
 	header.GetV1().KeyData = &keyData
 
 	headerBytes, err := proto.Marshal(header)
@@ -110,7 +112,7 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *uint
 	default:
 	}
 
-	key, err := kp.DecryptKeyPair(string(header.GetV1().KeyData.Edk))
+	key, err := kp.DecryptKeyPair(fmt.Sprintf("vault:v%d:%s", header.GetV1().KeyData.KeyVersion, base64.StdEncoding.EncodeToString(header.GetV1().KeyData.Edk)))
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting key: %v", err)
 	}
