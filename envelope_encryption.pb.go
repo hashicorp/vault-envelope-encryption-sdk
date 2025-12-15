@@ -7,7 +7,7 @@
 // 	protoc        (unknown)
 // source: envelope_encryption.proto
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"

@@ -1,7 +1,7 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	"encoding/base64"
@@ -78,9 +78,15 @@ func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 		return nil, fmt.Errorf("error decoding plaintext: %v", err)
 	}
 
+	version, edk, err := parseEDKCiphertext(ciphertext.(string))
+	if err != nil {
+		return nil, err
+	}
+
 	return &KeyPair{
-		EDK: ciphertext.(string),
-		DEK: plaintextBytes,
+		KeyVersion: version,
+		EDK:        edk,
+		DEK:        plaintextBytes,
 	}, nil
 }
 
@@ -105,4 +111,15 @@ func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 		p.cache.Add(edk, dek)
 	}
 	return dek, nil
+}
+
+func (p *transitKeyProvider) GetKeyData() KeyData {
+	namespace := p.client.Namespace()
+
+	return KeyData{
+		KeyName:    &p.keyName,
+		KeyVersion: uint32(p.keyVersion),
+		MountPath:  &p.backend,
+		Namespace:  &namespace,
+	}
 }

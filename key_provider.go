@@ -1,13 +1,14 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/vault/api"
@@ -26,13 +27,15 @@ type ProviderConfig struct {
 }
 
 type KeyPair struct {
-	EDK string
-	DEK []byte
+	KeyVersion int
+	EDK        []byte
+	DEK        []byte
 }
 
 type KeyProvider interface {
 	GetKeyPair() (*KeyPair, error)
 	DecryptKeyPair(edk string) ([]byte, error)
+	GetKeyData() KeyData
 }
 
 func checkCommonConfig(config ProviderConfig) error {
@@ -99,4 +102,23 @@ func decryptKey(backend, keyName, ciphertext string, client *api.Client) ([]byte
 	}
 
 	return dek, nil
+}
+
+func parseEDKCiphertext(edk string) (int, []byte, error) {
+	segments := strings.Split(edk, ":")
+	if len(segments) != 3 {
+		return 0, nil, errors.New("invalid edk")
+	}
+
+	version, err := strconv.Atoi(strings.TrimPrefix(segments[1], "v"))
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to parse version from EDK: %v", err)
+	}
+
+	ciphertext, err := base64.StdEncoding.DecodeString(segments[2])
+	if err != nil {
+		return 0, nil, fmt.Errorf("error decoding ciphertext: %v", err)
+	}
+
+	return version, ciphertext, nil
 }

@@ -1,12 +1,11 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	"encoding/base64"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -99,12 +98,12 @@ func TestGetKeyPair_transitKeyProvider(t *testing.T) {
 			require.NotEmpty(t, keyPair.EDK)
 			require.NotEmpty(t, keyPair.DEK)
 
-			versionStr := "v2"
+			expectedVersion := 2
 			if tc.keyVersion != 0 {
-				versionStr = fmt.Sprintf("v%d", tc.keyVersion)
+				expectedVersion = tc.keyVersion
 			}
 
-			require.True(t, strings.HasPrefix(keyPair.EDK, "vault:"+versionStr))
+			require.Equal(t, expectedVersion, keyPair.KeyVersion)
 
 			expectedKeyLength := 32
 			if tc.bits != 0 {
