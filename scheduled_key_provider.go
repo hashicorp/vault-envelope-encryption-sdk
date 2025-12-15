@@ -1,7 +1,7 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	"errors"
@@ -14,12 +14,13 @@ import (
 )
 
 type scheduledKeyProvider struct {
-	client   *api.Client
-	cache    *lru.Cache
-	keyName  string
-	backend  string
-	interval time.Duration
-	keys     map[string][]string
+	client     *api.Client
+	cache      *lru.Cache
+	keyName    string
+	keyVersion int
+	backend    string
+	interval   time.Duration
+	keys       map[string][]string
 }
 
 func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, error) {
@@ -41,11 +42,12 @@ func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, erro
 	}
 
 	provider := &scheduledKeyProvider{
-		client:   config.Client,
-		keyName:  config.KeyName,
-		backend:  config.Backend,
-		interval: config.DailyKeyInterval,
-		keys:     make(map[string][]string),
+		client:     config.Client,
+		keyName:    config.KeyName,
+		keyVersion: config.KeyVersion,
+		backend:    config.Backend,
+		interval:   config.DailyKeyInterval,
+		keys:       make(map[string][]string),
 	}
 
 	if config.CacheSize > 0 {
@@ -90,7 +92,6 @@ func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, erro
 				if !ok {
 					return nil, fmt.Errorf("got unexpected type %T from response data", v)
 				}
-
 				provider.keys[date][keyIndex] = returnedMap["ciphertext"].(string)
 			}
 		}
@@ -122,9 +123,15 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 				return nil, fmt.Errorf("got unexpected type %T from cache value", v)
 			}
 
+			version, ciphertext, err := parseEDKCiphertext(edk)
+			if err != nil {
+				return nil, err
+			}
+
 			return &KeyPair{
-				EDK: edk,
-				DEK: dek,
+				KeyVersion: version,
+				EDK:        ciphertext,
+				DEK:        dek,
 			}, nil
 		}
 	}
@@ -138,9 +145,15 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 		p.cache.Add(edk, dek)
 	}
 
+	version, ciphertext, err := parseEDKCiphertext(edk)
+	if err != nil {
+		return nil, err
+	}
+
 	return &KeyPair{
-		EDK: edk,
-		DEK: dek,
+		KeyVersion: version,
+		EDK:        ciphertext,
+		DEK:        dek,
 	}, nil
 }
 
@@ -165,4 +178,15 @@ func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 		p.cache.Add(edk, dek)
 	}
 	return dek, nil
+}
+
+func (p *scheduledKeyProvider) GetKeyData() KeyData {
+	namespace := p.client.Namespace()
+
+	return KeyData{
+		KeyName:    &p.keyName,
+		KeyVersion: uint32(p.keyVersion),
+		MountPath:  &p.backend,
+		Namespace:  &namespace,
+	}
 }

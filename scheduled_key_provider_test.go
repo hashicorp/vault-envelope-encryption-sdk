@@ -1,9 +1,10 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
+	"encoding/base64"
 	"fmt"
 	"testing"
 	"time"
@@ -273,19 +274,21 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 	key, err := provider.GetKeyPair()
 	require.NoError(t, err)
 
-	dek, err := provider.DecryptKeyPair(key.EDK)
+	ciphertext := fmt.Sprintf("vault:v%d:%s", key.KeyVersion, base64.StdEncoding.EncodeToString(key.EDK))
+
+	dek, err := provider.DecryptKeyPair(ciphertext)
 	require.NoError(t, err)
 	require.Equal(t, key.DEK, dek)
 
 	require.NotNil(t, provider.cache)
 	require.Equal(t, 1, provider.cache.Len())
-	require.True(t, provider.cache.Contains(key.EDK))
+	require.True(t, provider.cache.Contains(ciphertext))
 
 	// make it impossible for the provider to reach the key
 	// to validate that it's loading from the cache
 	provider.keyName = "bad-key"
 
-	dek, err = provider.DecryptKeyPair(key.EDK)
+	dek, err = provider.DecryptKeyPair(ciphertext)
 	require.NoError(t, err)
 	require.Equal(t, key.DEK, dek)
 
@@ -302,7 +305,9 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 	key, err = provider.GetKeyPair()
 	require.NoError(t, err)
 
-	dek, err = provider.DecryptKeyPair(key.EDK)
+	ciphertext = fmt.Sprintf("vault:v%d:%s", key.KeyVersion, base64.StdEncoding.EncodeToString(key.EDK))
+
+	dek, err = provider.DecryptKeyPair(ciphertext)
 	require.NoError(t, err)
 	require.Equal(t, key.DEK, dek)
 
@@ -310,7 +315,7 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 
 	// this should fail without caching
 	provider.keyName = "bad-key"
-	dek, err = provider.DecryptKeyPair(key.EDK)
+	dek, err = provider.DecryptKeyPair(ciphertext)
 	require.Error(t, err)
 
 	// error case
