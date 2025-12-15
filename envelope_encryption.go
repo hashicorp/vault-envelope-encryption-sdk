@@ -17,10 +17,10 @@ import (
 var MAGIC = []byte("VEE✉")
 
 const (
-	VERSION                 = 1
-	algorithmName           = "OAE2-AES256-GCM96-HKDF"
-	defaultHashAlgo         = "SHA256"
-	defaultCiphertextLength = 1024768
+	VERSION                      = 1
+	algorithmName                = "OAE2-AES256-GCM96-HKDF"
+	defaultHkdfAlgo              = "SHA256"
+	defaultCiphertextSegmentSize = 1024768
 )
 
 func NewHeader() *Header {
@@ -90,8 +90,7 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []b
 		return nil, fmt.Errorf("error commiting header: %v", err)
 	}
 
-	if header.GetV1().
-	aead, err := subtle.NewAESGCMHKDF(keyPair.DEK, "SHA256", len(keyPair.DEK), 1048576, 0)
+	aead, err := setupAead(header, keyPair.DEK)
 	if err != nil {
 		return nil, fmt.Errorf("error creating aead: %v", err)
 	}
@@ -103,6 +102,19 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []b
 	}
 
 	return w, nil
+}
+
+func setupAead(header *Header, dek []byte) (*subtle.AESGCMHKDF, error) {
+	var hkdfAlg string
+	var ciphertextSegmentSize uint32
+	if header.GetV1().AlgoParams == nil {
+		hkdfAlg = defaultHkdfAlgo
+		ciphertextSegmentSize = defaultCiphertextSegmentSize
+	} else {
+		hkdfAlg = header.GetV1().AlgoParams.HkdfAlgo
+		ciphertextSegmentSize = header.GetV1().AlgoParams.CiphertextSegmentSize
+	}
+	return subtle.NewAESGCMHKDF(dek, hkdfAlg, len(dek), int(ciphertextSegmentSize), 0)
 }
 
 func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *int64, headerOut chan *Header) (io.Reader, error) {
@@ -155,7 +167,7 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *int6
 		return nil, fmt.Errorf("error decrypting key: %v", err)
 	}
 
-	aead, err := subtle.NewAESGCMHKDF(key, "SHA256", len(key), 1048576, 0)
+	aead, err := setupAead(header, key)
 	if err != nil {
 		return nil, fmt.Errorf("error creating aead: %v", err)
 	}
@@ -221,6 +233,11 @@ func (h *Header) Map() map[string]any {
 			kd["key_name"] = *v1.KeyData.KeyName
 		}
 		rv["key_data"] = kd
+	}
+
+	if v1.AlgoParams != nil {
+		rv["hkdf_algorithm"] = v1.AlgoParams.HkdfAlgo
+		rv["ciphertext_segment_size"] = v1.AlgoParams.CiphertextSegmentSize
 	}
 
 	return rv
