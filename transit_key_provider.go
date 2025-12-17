@@ -78,9 +78,15 @@ func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 		return nil, fmt.Errorf("error decoding plaintext: %v", err)
 	}
 
+	version, edk, err := parseEDKCiphertext(ciphertext.(string))
+	if err != nil {
+		return nil, err
+	}
+
 	return &KeyPair{
-		EDK: ciphertext.(string),
-		DEK: plaintextBytes,
+		KeyVersion: version,
+		EDK:        edk,
+		DEK:        plaintextBytes,
 	}, nil
 }
 

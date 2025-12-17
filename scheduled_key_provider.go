@@ -92,7 +92,6 @@ func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, erro
 				if !ok {
 					return nil, fmt.Errorf("got unexpected type %T from response data", v)
 				}
-
 				provider.keys[date][keyIndex] = returnedMap["ciphertext"].(string)
 			}
 		}
@@ -124,9 +123,15 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 				return nil, fmt.Errorf("got unexpected type %T from cache value", v)
 			}
 
+			version, ciphertext, err := parseEDKCiphertext(edk)
+			if err != nil {
+				return nil, err
+			}
+
 			return &KeyPair{
-				EDK: edk,
-				DEK: dek,
+				KeyVersion: version,
+				EDK:        ciphertext,
+				DEK:        dek,
 			}, nil
 		}
 	}
@@ -140,9 +145,15 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 		p.cache.Add(edk, dek)
 	}
 
+	version, ciphertext, err := parseEDKCiphertext(edk)
+	if err != nil {
+		return nil, err
+	}
+
 	return &KeyPair{
-		EDK: edk,
-		DEK: dek,
+		KeyVersion: version,
+		EDK:        ciphertext,
+		DEK:        dek,
 	}, nil
 }
 
