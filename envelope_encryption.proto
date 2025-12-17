@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 syntax = "proto3";
-package envelopeencryption;
+package envelope;
 
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/hashicorp/vault-envelope-encryption-sdk";
+option go_package = "github.com/hashicorp/vault-envelope-encryption-sdk;envelope";
 
 message Header {
   uint32 version = 1;
@@ -24,14 +24,20 @@ message KeyData {
   bytes edk = 5;
 }
 
+message AlgorithmParameters {
+  string hkdfAlgo = 1;
+  uint32 ciphertextSegmentSize = 2;
+}
+
 message HeaderV1 {
   string algorithm = 1;
-  string mime_type = 2;
-  string encoding = 3;
-  google.protobuf.Timestamp created = 4;
-  KeyData key_data = 5;
-  bytes salt = 6;
-  bytes nonce_prefix = 7;
-  optional google.protobuf.Struct metadata = 8;
-  optional uint64 length = 9;
+  optional AlgorithmParameters algo_params = 2;
+  string mime_type = 3;
+  string encoding = 4;
+  google.protobuf.Timestamp created = 5;
+  KeyData key_data = 6;
+  bytes salt = 7;
+  bytes nonce_prefix = 8;
+  optional google.protobuf.Struct metadata = 9;
+  optional uint64 length = 10;
 }

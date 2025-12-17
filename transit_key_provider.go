@@ -116,10 +116,13 @@ func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 func (p *transitKeyProvider) GetKeyData() KeyData {
 	namespace := p.client.Namespace()
 
-	return KeyData{
+	kd := KeyData{
 		KeyName:    &p.keyName,
 		KeyVersion: uint32(p.keyVersion),
 		MountPath:  &p.backend,
-		Namespace:  &namespace,
 	}
+	if namespace != "" {
+		kd.Namespace = &namespace
+	}
+	return kd
 }
