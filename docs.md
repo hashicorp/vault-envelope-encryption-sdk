@@ -1,6 +1,6 @@
-## Usage
+# Usage
 
-### Key Management
+## Key Management
 
 The `KeyProvider` interface manages keys for envelope encryption. The `GetKeyPair`
 function will return a `KeyPair` struct containing a plaintext data key and the
@@ -20,4 +20,27 @@ decrypted using the `DecryptKeyPair` function.
 
 ### `ScheduledKeyProvider`
 The `ScheduledKeyProvider` uses the configured Transit key for both key derivation and
-encryption.
+encryption. The `NewScheduledKeyProvider` function creates all the data keys for
+the provider at construction time. The `DaysPast`, `DaysFuture`, and `DailyKeyInterval`
+parameters determine how many keys it requests from Transit. Starting from `DaysPast`
+days in the past and going until `DaysFuture` days in the future, it uses the Transit
+`derivedkeys` endpoint to generate keys for each day. The number of keys for each day
+is `24*time.Hour/DailyKeyInterval` (e.g., a `DailyKeyInterval` of `8*time.Hour` will
+create 3 keys per day).
+
+Each call to `GetKeyPair` uses the current time to determine which key to return.
+This means that two calls to `GetKeyPair` that fall within the same interval will
+return the same key.
+
+## Encryption and Decryption
+
+Encryption and decryption operations use the `tink` library for streaming encryption.
+
+`NewEncryptingWriter` uses the provided `KeyProvider` to generate a DEK then uses the
+DEK to create a writer that encrypts data with `AES-GCM`. The ciphertext is prepended
+with a magic value followed by a header. The header contains the EDK and metadata
+describing the Transit key that produced the ciphertext.
+
+`NewDecryptingReader` reads the EDK from the header and uses the provided `KeyProvider`
+to decrypt it. If `headerOut` is provided, it will write the header to the channel.
+It then returns a reader that decrypts data as it reads.

@@ -39,4 +39,28 @@ ignore these values.
   e.g., if the `DailyKeyInterval` is `24*time.Hour`, the `ScheduledKeyProvider` will
   generate one key per day in the range specified by `DaysPast` and `DaysFuture`.
 
-## Examples
+## `NewEncryptingWriter` Parameters
+- `kp` `(required)` - A KeyProvider configured with a Transit key
+
+- `dest` `(required)` - The `Writer` to which the ciphertext will be written
+
+- `header` - The Header to prepend to the ciphertext. If a header is not provided,
+the function will create one. The `KeyData` field of the header will be populated
+with the key data from `kp`.
+
+- `aad` - The AAD to use in the encryption
+
+- `length` - The length of the header in bytes
+
+
+## `NewDecryptingReader` Parameters
+- `kp` `(required)` - A `KeyProvider` configured with the Transit key used to create
+the DEK of the ciphertext.
+
+- `src` `(required)` - The `Reader` that provides the ciphertext
+
+- `aad` - The AAD used in the encryption of the ciphertext
+
+- `length` - The length of the header in bytes
+
+- `headerOut` - A channel to which the header from the ciphertext will be written
