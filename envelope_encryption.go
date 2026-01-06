@@ -162,7 +162,7 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *int6
 		headerOut <- header
 	}
 
-	key, err := kp.DecryptKeyPair(fmt.Sprintf("vault:v%d:%s", header.GetV1().KeyData.KeyVersion, base64.StdEncoding.EncodeToString(header.GetV1().KeyData.Edk)))
+	key, err := kp.DecryptDataKey(fmt.Sprintf("vault:v%d:%s", header.GetV1().KeyData.KeyVersion, base64.StdEncoding.EncodeToString(header.GetV1().KeyData.Edk)))
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting key: %v", err)
 	}

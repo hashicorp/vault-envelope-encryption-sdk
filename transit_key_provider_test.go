@@ -191,7 +191,7 @@ func TestDecryptKeyPair_transitKeyProvider(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			key, err := provider.DecryptKeyPair(tc.ciphertext)
+			key, err := provider.DecryptDataKey(tc.ciphertext)
 			if tc.expectErr {
 				require.Error(t, err)
 			} else {
@@ -207,13 +207,13 @@ func TestDecryptKeyPair_transitKeyProvider(t *testing.T) {
 					require.Equal(t, 1, provider.cache.Len())
 					require.True(t, provider.cache.Contains(tc.ciphertext))
 
-					key, err = provider.DecryptKeyPair(tc.ciphertext)
+					key, err = provider.DecryptDataKey(tc.ciphertext)
 					require.NoError(t, err)
 					require.Equal(t, tc.expected, key)
 				} else {
 					require.Nil(t, provider.cache)
 
-					key, err = provider.DecryptKeyPair(tc.ciphertext)
+					key, err = provider.DecryptDataKey(tc.ciphertext)
 					require.Error(t, err)
 				}
 			}

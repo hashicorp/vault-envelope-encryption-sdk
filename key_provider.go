@@ -34,7 +34,7 @@ type KeyPair struct {
 
 type KeyProvider interface {
 	GetKeyPair() (*KeyPair, error)
-	DecryptKeyPair(edk string) ([]byte, error)
+	DecryptDataKey(edk string) ([]byte, error)
 	GetKeyData() KeyData
 }
 

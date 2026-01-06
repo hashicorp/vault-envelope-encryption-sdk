@@ -157,7 +157,7 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 	}, nil
 }
 
-func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
+func (p *scheduledKeyProvider) DecryptDataKey(edk string) ([]byte, error) {
 	if p.cache != nil {
 		if v, ok := p.cache.Get(edk); ok {
 			dek, ok := v.([]byte)

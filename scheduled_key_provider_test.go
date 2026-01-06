@@ -276,7 +276,7 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 
 	ciphertext := fmt.Sprintf("vault:v%d:%s", key.KeyVersion, base64.StdEncoding.EncodeToString(key.EDK))
 
-	dek, err := provider.DecryptKeyPair(ciphertext)
+	dek, err := provider.DecryptDataKey(ciphertext)
 	require.NoError(t, err)
 	require.Equal(t, key.DEK, dek)
 
@@ -288,7 +288,7 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 	// to validate that it's loading from the cache
 	provider.keyName = "bad-key"
 
-	dek, err = provider.DecryptKeyPair(ciphertext)
+	dek, err = provider.DecryptDataKey(ciphertext)
 	require.NoError(t, err)
 	require.Equal(t, key.DEK, dek)
 
@@ -307,7 +307,7 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 
 	ciphertext = fmt.Sprintf("vault:v%d:%s", key.KeyVersion, base64.StdEncoding.EncodeToString(key.EDK))
 
-	dek, err = provider.DecryptKeyPair(ciphertext)
+	dek, err = provider.DecryptDataKey(ciphertext)
 	require.NoError(t, err)
 	require.Equal(t, key.DEK, dek)
 
@@ -315,10 +315,10 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 
 	// this should fail without caching
 	provider.keyName = "bad-key"
-	dek, err = provider.DecryptKeyPair(ciphertext)
+	dek, err = provider.DecryptDataKey(ciphertext)
 	require.Error(t, err)
 
 	// error case
-	_, err = provider.DecryptKeyPair("invalid-ciphertext")
+	_, err = provider.DecryptDataKey("invalid-ciphertext")
 	require.Error(t, err)
 }
