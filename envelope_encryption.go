@@ -121,15 +121,16 @@ func setupAead(header *Header, dek []byte) (*subtle.AESGCMHKDF, error) {
 }
 
 func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *int64, headerOut chan *Header) (io.Reader, error) {
-	if length != nil {
-		src = io.LimitReader(src, *length)
-	}
 	if kp == nil {
 		return nil, fmt.Errorf("key provider was nil")
 	}
 
 	if src == nil {
 		return nil, fmt.Errorf("reader was nil")
+	}
+
+	if length != nil {
+		src = io.LimitReader(src, *length)
 	}
 
 	var buffer bytes.Buffer
