@@ -4,6 +4,8 @@
 package envelope
 
 import (
+	"bytes"
+	"encoding/binary"
 	"io"
 	"os"
 	"path/filepath"
@@ -137,7 +139,14 @@ func TestNewEncryptingWriter(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			w, err := NewEncryptingWriter(tc.provider, tc.writer, tc.header, tc.aad)
+			var headerLen int64
+			if tc.header != nil {
+				headerBytes, err := proto.Marshal(tc.header)
+				require.NoError(t, err)
+				headerLen = int64(len(headerBytes))
+			}
+
+			w, err := NewEncryptingWriter(tc.provider, tc.writer, tc.header, tc.aad, &headerLen)
 			if tc.expectError {
 				require.Error(t, err)
 			} else {
@@ -183,24 +192,40 @@ func TestNewDecryptingReader(t *testing.T) {
 	ciphertextPath := filepath.Join(dir, "ciphertext")
 
 	testCases := map[string]struct {
-		provider    KeyProvider
-		path        string
-		aad         []byte
-		expectError bool
+		provider      KeyProvider
+		path          string
+		aad           []byte
+		headerChannel chan *Header
+		includeLength bool
 	}{
 		"empty-aad": {
-			provider: provider,
-			path:     ciphertextPath,
+			provider:      provider,
+			path:          ciphertextPath,
+			headerChannel: make(chan *Header),
 		},
 		"key-provider": {
+			provider:      provider,
+			path:          ciphertextPath,
+			aad:           []byte("test aad"),
+			headerChannel: make(chan *Header),
+		},
+		"scheduled-key-provider": {
+			provider:      scheduledProvider,
+			path:          ciphertextPath,
+			aad:           []byte("test aad"),
+			headerChannel: make(chan *Header),
+		},
+		"nil channel": {
 			provider: provider,
 			path:     ciphertextPath,
 			aad:      []byte("test aad"),
 		},
-		"scheduled-key-provider": {
-			provider: scheduledProvider,
-			path:     ciphertextPath,
-			aad:      []byte("test aad"),
+		"length provided": {
+			provider:      provider,
+			path:          ciphertextPath,
+			headerChannel: make(chan *Header),
+			aad:           []byte("test aad"),
+			includeLength: true,
 		},
 	}
 
@@ -209,7 +234,11 @@ func TestNewDecryptingReader(t *testing.T) {
 			key, err := provider.GetKeyPair()
 			require.NoError(t, err)
 
-			headerLen := createCiphertext(t, backend, ciphertextPath+name, key)
+			fileSize := createCiphertext(t, backend, ciphertextPath+name, tc.aad, key)
+			var ciphertextSize *int64
+			if tc.includeLength {
+				ciphertextSize = &fileSize
+			}
 
 			ciphertextFile, err := os.Open(ciphertextPath + name)
 			require.NoError(t, err)
@@ -217,7 +246,7 @@ func TestNewDecryptingReader(t *testing.T) {
 			defer ciphertextFile.Close()
 
 			headerChannel := make(chan *Header, 1)
-			reader, err := NewDecryptingReader(tc.provider, ciphertextFile, tc.aad, &headerLen, headerChannel)
+			reader, err := NewDecryptingReader(tc.provider, ciphertextFile, tc.aad, ciphertextSize, headerChannel)
 			require.NoError(t, err)
 			require.NotNil(t, reader)
 		})
@@ -262,13 +291,13 @@ func TestNewDecryptingReader_errorCases(t *testing.T) {
 	headerBytes, err := proto.Marshal(header)
 	require.NoError(t, err)
 
-	headerLen := uint64(len(headerBytes))
+	headerLen := int64(len(headerBytes))
 
 	testCases := map[string]struct {
 		provider      KeyProvider
 		headerChannel chan *Header
 		reader        io.Reader
-		headerLen     *uint64
+		headerLen     *int64
 		aad           []byte
 		expectedError string
 	}{
@@ -283,18 +312,6 @@ func TestNewDecryptingReader_errorCases(t *testing.T) {
 			headerChannel: make(chan *Header),
 			headerLen:     &headerLen,
 			expectedError: "reader was nil",
-		},
-		"nil channel": {
-			provider:      provider,
-			reader:        ciphertextFile,
-			headerLen:     &headerLen,
-			expectedError: "header channel was nil",
-		},
-		"nil length": {
-			provider:      provider,
-			reader:        ciphertextFile,
-			headerChannel: make(chan *Header),
-			expectedError: "length was nil",
 		},
 	}
 
@@ -365,7 +382,7 @@ func testEncryptDecryptWithProvider(t *testing.T, backend string, provider KeyPr
 	ciphertextFile, err := os.Create(filepath.Join(dir, "ciphertext"))
 	require.NoError(t, err)
 
-	w, err := NewEncryptingWriter(provider, ciphertextFile, header, aad)
+	w, err := NewEncryptingWriter(provider, ciphertextFile, header, aad, nil)
 	require.NoError(t, err)
 
 	_, err = w.Write(plaintext)
@@ -375,15 +392,11 @@ func testEncryptDecryptWithProvider(t *testing.T, backend string, provider KeyPr
 
 	require.NotEmpty(t, header.GetV1().KeyData.Edk)
 
-	headerBytes, err := proto.Marshal(header)
-	require.NoError(t, err)
-	headerLen := uint64(len(headerBytes))
-
 	ciphertextFile, err = os.Open(filepath.Join(dir, "ciphertext"))
 	require.NoError(t, err)
 
 	c := make(chan *Header, 1)
-	r, err := NewDecryptingReader(provider, ciphertextFile, aad, &headerLen, c)
+	r, err := NewDecryptingReader(provider, ciphertextFile, aad, nil, c)
 	require.NoError(t, err)
 
 	var readHeader *Header
@@ -404,16 +417,17 @@ func testEncryptDecryptWithProvider(t *testing.T, backend string, provider KeyPr
 	require.NoError(t, ciphertextFile.Close())
 }
 
-func createCiphertext(t *testing.T, backend, fileName string, key *KeyPair) uint64 {
+func createCiphertext(t *testing.T, backend, fileName string, aad []byte, key *KeyPair) int64 {
 	keyName := testKeyName
 
 	header := &Header{
 		Data: &Header_V1{
 			V1: &HeaderV1{
 				KeyData: &KeyData{
-					MountPath: &backend,
-					KeyName:   &keyName,
-					Edk:       []byte(key.EDK),
+					MountPath:  &backend,
+					KeyName:    &keyName,
+					Edk:        key.EDK,
+					KeyVersion: uint32(key.KeyVersion),
 				},
 			},
 		},
@@ -421,27 +435,36 @@ func createCiphertext(t *testing.T, backend, fileName string, key *KeyPair) uint
 	headerBytes, err := proto.Marshal(header)
 	require.NoError(t, err)
 
-	headerLen := uint64(len(headerBytes))
-
 	ciphertextFile, err := os.Create(fileName)
 	require.NoError(t, err)
-
-	_, err = ciphertextFile.Write(MAGIC)
+	var buffer bytes.Buffer
+	_, err = buffer.Write(MAGIC)
 	require.NoError(t, err)
 
-	_, err = ciphertextFile.Write(headerBytes)
+	headerLen := make([]byte, 4)
+	binary.LittleEndian.PutUint32(headerLen, uint32(len(headerBytes)))
+	_, err = buffer.Write(headerLen)
+	require.NoError(t, err)
+	_, err = buffer.Write(headerBytes)
+	require.NoError(t, err)
+
+	_, err = ciphertextFile.Write(buffer.Bytes())
 	require.NoError(t, err)
 
 	aead, err := subtle.NewAESGCMHKDF(key.DEK, "SHA256", 32, 1048576, 0)
 	require.NoError(t, err)
 
-	w, err := aead.NewEncryptingWriter(ciphertextFile, []byte(""))
+	aad = append(buffer.Bytes(), aad...)
+	w, err := aead.NewEncryptingWriter(ciphertextFile, aad)
 	require.NoError(t, err)
 
 	_, err = w.Write([]byte("test-ciphertext"))
 	require.NoError(t, err)
 
+	fileInfo, err := os.Stat(fileName)
+	require.NoError(t, err)
+
 	require.NoError(t, ciphertextFile.Close())
 
-	return headerLen
+	return fileInfo.Size()
 }

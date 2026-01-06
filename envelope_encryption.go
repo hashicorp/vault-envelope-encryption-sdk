@@ -5,8 +5,9 @@ package envelope
 
 import (
 	"bytes"
-  "encoding/base64"
+	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -131,10 +132,6 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *int6
 		return nil, fmt.Errorf("reader was nil")
 	}
 
-	if length == nil {
-		return nil, fmt.Errorf("length was nil")
-	}
-
 	var buffer bytes.Buffer
 	tr := io.TeeReader(src, &buffer)
 
@@ -185,9 +182,12 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *int6
 
 func ReadHeader(src io.Reader, headerLen uint32) (*Header, error) {
 	headerBytes := make([]byte, headerLen)
-	_, err := src.Read(headerBytes)
+	n, err := src.Read(headerBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error reading header: %v", err)
+	}
+	if uint32(n) != headerLen {
+		return nil, errors.New("error reading header: not enough bytes in stream")
 	}
 
 	header := &Header{}
