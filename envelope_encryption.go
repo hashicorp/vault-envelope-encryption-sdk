@@ -36,14 +36,23 @@ func NewHeader() *Header {
 	}
 }
 
-func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []byte, length *int64) (io.WriteCloser, error) {
-	if header == nil {
-		header = NewHeader()
+func NewEncryptingWriter(kp KeyProvider, dest io.Writer, options ...Option) (io.WriteCloser, error) {
+	opts, err := getOpts(options...)
+	if err != nil {
+		return nil, err
 	}
-	if length != nil {
-		l := uint64(*length)
+	var header *Header
+	if opts.header == nil {
+		header = NewHeader()
+	} else {
+		header = opts.header
+	}
+
+	if opts.length != nil {
+		l := uint64(*opts.length)
 		header.GetV1().Length = &l
 	}
+
 	if kp == nil {
 		return nil, fmt.Errorf("key provider was nil")
 	}
@@ -98,7 +107,7 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, header *Header, aad []b
 		return nil, fmt.Errorf("error creating aead: %v", err)
 	}
 
-	aad = append(buffer.Bytes(), aad...)
+	aad := append(buffer.Bytes(), opts.aad...)
 	w, err := aead.NewEncryptingWriter(dest, aad)
 	if err != nil {
 		return nil, fmt.Errorf("error creating writer: %v", err)
@@ -120,7 +129,11 @@ func setupAead(header *Header, dek []byte) (*subtle.AESGCMHKDF, error) {
 	return subtle.NewAESGCMHKDF(dek, hkdfAlg, len(dek), int(ciphertextSegmentSize), 0)
 }
 
-func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *int64, headerOut chan *Header) (io.Reader, error) {
+func NewDecryptingReader(kp KeyProvider, src io.Reader, headerOut chan *Header, options ...Option) (io.Reader, error) {
+	opts, err := getOpts(options...)
+	if err != nil {
+		return nil, err
+	}
 	if kp == nil {
 		return nil, fmt.Errorf("key provider was nil")
 	}
@@ -129,15 +142,15 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *int6
 		return nil, fmt.Errorf("reader was nil")
 	}
 
-	if length != nil {
-		src = io.LimitReader(src, *length)
+	if opts.length != nil {
+		src = io.LimitReader(src, int64(*opts.length))
 	}
 
 	var buffer bytes.Buffer
 	tr := io.TeeReader(src, &buffer)
 
 	magicBytes := make([]byte, len(MAGIC))
-	_, err := io.ReadFull(tr, magicBytes)
+	_, err = io.ReadFull(tr, magicBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error reading magic value: %v", err)
 	}
@@ -172,7 +185,7 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, aad []byte, length *int6
 		return nil, fmt.Errorf("error creating aead: %v", err)
 	}
 
-	aad = append(buffer.Bytes(), aad...)
+	aad := append(buffer.Bytes(), opts.aad...)
 	r, err := aead.NewDecryptingReader(src, aad)
 	if err != nil {
 		return nil, fmt.Errorf("error creating reader: %v", err)
