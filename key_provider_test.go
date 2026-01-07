@@ -1,7 +1,7 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	"encoding/base64"
@@ -72,7 +72,6 @@ func TestCheckCommonConfig(t *testing.T) {
 				Backend:   backend,
 				CacheSize: 0,
 			},
-			expectedError: "cache size must be greater than zero",
 		},
 		"negative cache size": {
 			config: ProviderConfig{
@@ -81,7 +80,7 @@ func TestCheckCommonConfig(t *testing.T) {
 				Backend:   backend,
 				CacheSize: -1,
 			},
-			expectedError: "cache size must be greater than zero",
+			expectedError: "cache size must not be negative",
 		},
 		"invalid key version": {
 			config: ProviderConfig{
