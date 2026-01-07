@@ -73,3 +73,12 @@ func WithOmitKeyData(with bool) Option {
 		})
 	}
 }
+
+func WithLength(with *int64) Option {
+	return func() interface{} {
+		return OptionFunc(func(o *options) error {
+			o.length = with
+			return nil
+		})
+	}
+}
