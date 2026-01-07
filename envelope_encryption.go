@@ -73,6 +73,12 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, options ...Option) (io.
 	keyData := kp.GetKeyData()
 	keyData.Edk = keyPair.EDK
 	keyData.KeyVersion = uint32(keyPair.KeyVersion)
+	if opts.omitKeyData {
+		// Caller has requested to omit key data, scrub it
+		keyData.MountPath = nil
+		keyData.KeyName = nil
+		keyData.Namespace = nil
+	}
 	header.GetV1().KeyData = &keyData
 
 	headerBytes, err := proto.Marshal(header)

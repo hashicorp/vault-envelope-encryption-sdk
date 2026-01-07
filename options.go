@@ -8,9 +8,10 @@ import (
 )
 
 type options struct {
-	length *int64
-	header *Header
-	aad    []byte
+	length      *int64
+	header      *Header
+	aad         []byte
+	omitKeyData bool
 }
 
 // GetOpts iterates the inbound options and returns a struct
@@ -64,10 +65,10 @@ func WithHeader(with *Header) Option {
 	}
 }
 
-func WithLength(with *int64) Option {
+func WithOmitKeyData(with bool) Option {
 	return func() interface{} {
 		return OptionFunc(func(o *options) error {
-			o.length = with
+			o.omitKeyData = with
 			return nil
 		})
 	}
