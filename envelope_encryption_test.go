@@ -146,7 +146,7 @@ func TestNewEncryptingWriter(t *testing.T) {
 				headerLen = int64(len(headerBytes))
 			}
 
-			w, err := NewEncryptingWriter(tc.provider, tc.writer, tc.header, tc.aad, &headerLen)
+			w, err := NewEncryptingWriter(tc.provider, tc.writer, WithHeader(tc.header), WithAad(tc.aad), WithLength(&headerLen))
 			if tc.expectError {
 				require.Error(t, err)
 			} else {
@@ -246,7 +246,7 @@ func TestNewDecryptingReader(t *testing.T) {
 			defer ciphertextFile.Close()
 
 			headerChannel := make(chan *Header, 1)
-			reader, err := NewDecryptingReader(tc.provider, ciphertextFile, tc.aad, ciphertextSize, headerChannel)
+			reader, err := NewDecryptingReader(tc.provider, ciphertextFile, headerChannel, WithAad(tc.aad), WithLength(ciphertextSize))
 			require.NoError(t, err)
 			require.NotNil(t, reader)
 		})
@@ -297,20 +297,20 @@ func TestNewDecryptingReader_errorCases(t *testing.T) {
 		provider      KeyProvider
 		headerChannel chan *Header
 		reader        io.Reader
-		headerLen     *int64
+		length        *int64
 		aad           []byte
 		expectedError string
 	}{
 		"nil provider": {
 			reader:        ciphertextFile,
 			headerChannel: make(chan *Header, 1),
-			headerLen:     &headerLen,
+			length:        &headerLen,
 			expectedError: "key provider was nil",
 		},
 		"nil reader": {
 			provider:      provider,
 			headerChannel: make(chan *Header),
-			headerLen:     &headerLen,
+			length:        &headerLen,
 			expectedError: "reader was nil",
 		},
 	}
@@ -319,7 +319,7 @@ func TestNewDecryptingReader_errorCases(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := NewDecryptingReader(tc.provider, tc.reader, tc.aad, tc.headerLen, tc.headerChannel)
+			_, err := NewDecryptingReader(tc.provider, tc.reader, tc.headerChannel, WithAad(tc.aad), WithLength(tc.length))
 			require.Error(t, err)
 			require.Equal(t, tc.expectedError, err.Error())
 		})
@@ -382,7 +382,7 @@ func testEncryptDecryptWithProvider(t *testing.T, backend string, provider KeyPr
 	ciphertextFile, err := os.Create(filepath.Join(dir, "ciphertext"))
 	require.NoError(t, err)
 
-	w, err := NewEncryptingWriter(provider, ciphertextFile, header, aad, nil)
+	w, err := NewEncryptingWriter(provider, ciphertextFile, WithHeader(header), WithAad(aad))
 	require.NoError(t, err)
 
 	_, err = w.Write(plaintext)
@@ -396,7 +396,7 @@ func testEncryptDecryptWithProvider(t *testing.T, backend string, provider KeyPr
 	require.NoError(t, err)
 
 	c := make(chan *Header, 1)
-	r, err := NewDecryptingReader(provider, ciphertextFile, aad, nil, c)
+	r, err := NewDecryptingReader(provider, ciphertextFile, c, WithAad(aad))
 	require.NoError(t, err)
 
 	var readHeader *Header
