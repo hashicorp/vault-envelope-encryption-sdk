@@ -75,7 +75,7 @@ func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 
 	plaintextBytes, err := base64.StdEncoding.DecodeString(plaintext.(string))
 	if err != nil {
-		return nil, fmt.Errorf("error decoding plaintext: %v", err)
+		return nil, fmt.Errorf("error decoding plaintext: %w", err)
 	}
 
 	version, edk, err := parseEDKCiphertext(ciphertext.(string))

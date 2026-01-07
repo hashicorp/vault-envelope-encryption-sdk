@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/vault/api v1.22.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tink-crypto/tink-go/v2 v2.5.0
-	google.golang.org/protobuf v1.36.10
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
