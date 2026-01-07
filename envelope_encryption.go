@@ -135,7 +135,7 @@ func setupAead(header *Header, dek []byte) (*subtle.AESGCMHKDF, error) {
 	return subtle.NewAESGCMHKDF(dek, hkdfAlg, len(dek), int(ciphertextSegmentSize), 0)
 }
 
-func NewDecryptingReader(kp KeyProvider, src io.Reader, headerOut chan *Header, options ...Option) (io.Reader, error) {
+func NewDecryptingReader(kp KeyProvider, src io.Reader, options ...Option) (io.Reader, error) {
 	opts, err := getOpts(options...)
 	if err != nil {
 		return nil, err
@@ -177,8 +177,8 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, headerOut chan *Header, 
 		return nil, err
 	}
 
-	if headerOut != nil {
-		headerOut <- header
+	if opts.headerOut != nil {
+		opts.headerOut <- header
 	}
 
 	key, err := kp.DecryptDataKey(fmt.Sprintf("vault:v%d:%s", header.GetV1().KeyData.KeyVersion, base64.StdEncoding.EncodeToString(header.GetV1().KeyData.Edk)))

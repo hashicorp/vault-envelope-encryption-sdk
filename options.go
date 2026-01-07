@@ -12,6 +12,7 @@ type options struct {
 	header      *Header
 	aad         []byte
 	omitKeyData bool
+	headerOut   chan *Header
 }
 
 // GetOpts iterates the inbound options and returns a struct
@@ -78,6 +79,15 @@ func WithLength(with *int64) Option {
 	return func() interface{} {
 		return OptionFunc(func(o *options) error {
 			o.length = with
+			return nil
+		})
+	}
+}
+
+func WithHeaderOutChan(with chan *Header) Option {
+	return func() interface{} {
+		return OptionFunc(func(o *options) error {
+			o.headerOut = with
 			return nil
 		})
 	}
