@@ -155,26 +155,9 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, options ...Option) (io.R
 	var buffer bytes.Buffer
 	tr := io.TeeReader(src, &buffer)
 
-	magicBytes := make([]byte, len(MAGIC))
-	_, err = io.ReadFull(tr, magicBytes)
+	header, err := ReadHeader(tr)
 	if err != nil {
-		return nil, fmt.Errorf("error reading magic value: %v", err)
-	}
-	if !bytes.Equal(magicBytes, MAGIC) {
-		return nil, fmt.Errorf("invalid envelope encryption magic value")
-	}
-
-	headerLen := make([]byte, 4)
-	_, err = io.ReadFull(tr, headerLen)
-	if err != nil {
-		return nil, err
-	}
-
-	headerLength := binary.LittleEndian.Uint32(headerLen)
-
-	header, err := ReadHeader(tr, headerLength)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading preamble: %w", err)
 	}
 
 	if opts.headerOut != nil {
@@ -200,7 +183,32 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, options ...Option) (io.R
 	return r, nil
 }
 
-func ReadHeader(src io.Reader, headerLen uint32) (*Header, error) {
+func ReadHeader(in io.Reader) (*Header, error) {
+	magicBytes := make([]byte, len(MAGIC))
+	_, err := io.ReadFull(in, magicBytes)
+	if err != nil {
+		return nil, fmt.Errorf("error reading magic value: %w", err)
+	}
+	if !bytes.Equal(magicBytes, MAGIC) {
+		return nil, fmt.Errorf("invalid envelope encryption magic value")
+	}
+
+	headerLen := make([]byte, 4)
+	_, err = io.ReadFull(in, headerLen)
+	if err != nil {
+		return nil, err
+	}
+
+	headerLength := binary.LittleEndian.Uint32(headerLen)
+
+	header, err := readHeaderOnly(in, headerLength)
+	if err != nil {
+		return nil, err
+	}
+	return header, nil
+}
+
+func readHeaderOnly(src io.Reader, headerLen uint32) (*Header, error) {
 	headerBytes := make([]byte, headerLen)
 	n, err := src.Read(headerBytes)
 	if err != nil {
