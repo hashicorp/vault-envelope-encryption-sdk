@@ -246,7 +246,7 @@ func TestNewDecryptingReader(t *testing.T) {
 			defer ciphertextFile.Close()
 
 			headerChannel := make(chan *Header, 1)
-			reader, err := NewDecryptingReader(tc.provider, ciphertextFile, headerChannel, WithAad(tc.aad), WithLength(ciphertextSize))
+			reader, err := NewDecryptingReader(tc.provider, ciphertextFile, WithHeaderOutChan(headerChannel), WithAad(tc.aad), WithLength(ciphertextSize))
 			require.NoError(t, err)
 			require.NotNil(t, reader)
 		})
@@ -319,7 +319,7 @@ func TestNewDecryptingReader_errorCases(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := NewDecryptingReader(tc.provider, tc.reader, tc.headerChannel, WithAad(tc.aad), WithLength(tc.length))
+			_, err := NewDecryptingReader(tc.provider, tc.reader, WithHeaderOutChan(tc.headerChannel), WithAad(tc.aad), WithLength(tc.length))
 			require.Error(t, err)
 			require.Equal(t, tc.expectedError, err.Error())
 		})
@@ -396,7 +396,7 @@ func testEncryptDecryptWithProvider(t *testing.T, backend string, provider KeyPr
 	require.NoError(t, err)
 
 	c := make(chan *Header, 1)
-	r, err := NewDecryptingReader(provider, ciphertextFile, c, WithAad(aad))
+	r, err := NewDecryptingReader(provider, ciphertextFile, WithHeaderOutChan(c), WithAad(aad))
 	require.NoError(t, err)
 
 	var readHeader *Header
