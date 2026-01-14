@@ -48,13 +48,14 @@ func NewTransitKeyProvider(config ProviderConfig) (*transitKeyProvider, error) {
 func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 	data := map[string]interface{}{
 		"key_version": p.keyVersion,
+		"count":       1,
 	}
 
 	if p.keyBits != 0 {
 		data["bits"] = p.keyBits
 	}
 
-	resp, err := p.client.Logical().Write(fmt.Sprintf("%s/datakey/plaintext/%s", p.backend, p.keyName), data)
+	resp, err := p.client.Logical().Write(fmt.Sprintf("%s/datakeys/plaintext/%s", p.backend, p.keyName), data)
 	if err != nil {
 		return nil, err
 	}
