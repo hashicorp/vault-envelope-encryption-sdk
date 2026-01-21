@@ -15,6 +15,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"github.com/tink-crypto/tink-go/v2/streamingaead/subtle"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestNewEncryptingWriter(t *testing.T) {
@@ -355,6 +356,56 @@ func TestEncryptDecrypt(t *testing.T) {
 	testEncryptDecryptWithProvider(t, backend, scheduledProvider)
 }
 
+func TestNewDecryptingReader_streamErrors(t *testing.T) {
+	t.Parallel()
+
+	client, backend := providerTestSetup(t)
+
+	dir, err := os.MkdirTemp("", "streamingaead")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	keyName := testKeyName
+
+	provider, err := NewTransitKeyProvider(ProviderConfig{
+		Client:    client,
+		CacheSize: 1,
+		KeyName:   keyName,
+		Backend:   backend,
+	})
+	require.NoError(t, err)
+
+	key, err := provider.GetKeyPair()
+	require.NoError(t, err)
+
+	headerErrorPath := filepath.Join(dir, "header-error")
+	ciphertextErrorPath := filepath.Join(dir, "ciphertext-error")
+
+	createCiphertext(t, backend, headerErrorPath, []byte(""), key)
+	createCiphertext(t, backend, ciphertextErrorPath, []byte(""), key)
+
+	headerReader := overwriteHeader(t, headerErrorPath)
+	ciphertextReader := overwriteCiphertextByte(t, ciphertextErrorPath)
+
+	testCases := map[string]io.Reader{
+		"bad header":     headerReader,
+		"bad ciphertext": ciphertextReader,
+	}
+
+	for name, r := range testCases {
+		t.Run(name, func(t *testing.T) {
+			reader, err := NewDecryptingReader(provider, r)
+			require.NoError(t, err)
+
+			var buf bytes.Buffer
+			_, err = io.Copy(&buf, reader)
+			require.Error(t, err)
+		})
+	}
+}
+
 func testEncryptDecryptWithProvider(t *testing.T, backend string, provider KeyProvider) {
 	dir, err := os.MkdirTemp("", "streamingaead")
 	if err != nil {
@@ -467,4 +518,52 @@ func createCiphertext(t *testing.T, backend, fileName string, aad []byte, key *K
 	require.NoError(t, ciphertextFile.Close())
 
 	return fileInfo.Size()
+}
+
+func overwriteHeader(t *testing.T, path string) io.Reader {
+	f, err := os.Open(path)
+	require.NoError(t, err)
+
+	header, err := ReadHeader(f)
+	require.NoError(t, err)
+
+	header.GetV1().Created = timestamppb.New(time.Now())
+
+	headerBytes, err := proto.Marshal(header)
+	require.NoError(t, err)
+
+	headerLen := make([]byte, 4)
+	binary.LittleEndian.PutUint32(headerLen, uint32(len(headerBytes)))
+
+	var buf bytes.Buffer
+	_, err = buf.Write(MAGIC)
+	require.NoError(t, err)
+
+	_, err = buf.Write(headerLen)
+	require.NoError(t, err)
+
+	_, err = buf.Write(headerBytes)
+	require.NoError(t, err)
+
+	_, err = io.Copy(&buf, f)
+	require.NoError(t, err)
+
+	require.NoError(t, f.Close())
+
+	return bytes.NewReader(buf.Bytes())
+}
+
+func overwriteCiphertextByte(t *testing.T, ciphertextPath string) io.Reader {
+	ciphertextFile, err := os.Open(ciphertextPath)
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	n, err := buffer.ReadFrom(ciphertextFile)
+	require.NoError(t, err)
+	require.NoError(t, ciphertextFile.Close())
+
+	fileContents := buffer.Bytes()
+	fileContents[n-4] = 0
+
+	return bytes.NewReader(fileContents)
 }
