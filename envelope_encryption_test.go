@@ -250,6 +250,11 @@ func TestNewDecryptingReader(t *testing.T) {
 			reader, err := NewDecryptingReader(tc.provider, ciphertextFile, WithHeaderOutChan(headerChannel), WithAad(tc.aad), WithLength(ciphertextSize))
 			require.NoError(t, err)
 			require.NotNil(t, reader)
+
+			var buf bytes.Buffer
+			_, err = io.Copy(&buf, reader)
+			require.NoError(t, err)
+			require.Equal(t, []byte("test-ciphertext"), buf.Bytes())
 		})
 	}
 }
@@ -502,7 +507,7 @@ func createCiphertext(t *testing.T, backend, fileName string, aad []byte, key *K
 	_, err = ciphertextFile.Write(buffer.Bytes())
 	require.NoError(t, err)
 
-	aead, err := subtle.NewAESGCMHKDF(key.DEK, "SHA256", 32, 1048576, 0)
+	aead, err := subtle.NewAESGCMHKDF(key.DEK, defaultHkdfAlgo, len(key.DEK), defaultCiphertextSegmentSize, 0)
 	require.NoError(t, err)
 
 	aad = append(buffer.Bytes(), aad...)
@@ -511,11 +516,10 @@ func createCiphertext(t *testing.T, backend, fileName string, aad []byte, key *K
 
 	_, err = w.Write([]byte("test-ciphertext"))
 	require.NoError(t, err)
+	require.NoError(t, w.Close())
 
 	fileInfo, err := os.Stat(fileName)
 	require.NoError(t, err)
-
-	require.NoError(t, ciphertextFile.Close())
 
 	return fileInfo.Size()
 }
@@ -525,6 +529,9 @@ func overwriteHeader(t *testing.T, path string) io.Reader {
 	require.NoError(t, err)
 
 	header, err := ReadHeader(f)
+	require.NoError(t, err)
+
+	ciphertextBytes, err := io.ReadAll(f)
 	require.NoError(t, err)
 
 	header.GetV1().Created = timestamppb.New(time.Now())
@@ -545,10 +552,8 @@ func overwriteHeader(t *testing.T, path string) io.Reader {
 	_, err = buf.Write(headerBytes)
 	require.NoError(t, err)
 
-	_, err = io.Copy(&buf, f)
+	_, err = buf.Write(ciphertextBytes)
 	require.NoError(t, err)
-
-	require.NoError(t, f.Close())
 
 	return bytes.NewReader(buf.Bytes())
 }
