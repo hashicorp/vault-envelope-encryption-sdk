@@ -48,13 +48,14 @@ func NewTransitKeyProvider(config ProviderConfig) (*transitKeyProvider, error) {
 func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 	data := map[string]interface{}{
 		"key_version": p.keyVersion,
+		"count":       1,
 	}
 
 	if p.keyBits != 0 {
 		data["bits"] = p.keyBits
 	}
 
-	resp, err := p.client.Logical().Write(fmt.Sprintf("%s/datakey/plaintext/%s", p.backend, p.keyName), data)
+	resp, err := p.client.Logical().Write(fmt.Sprintf("%s/datakeys/plaintext/%s", p.backend, p.keyName), data)
 	if err != nil {
 		return nil, err
 	}
@@ -63,12 +64,31 @@ func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 		return nil, errors.New("got nil response from transit")
 	}
 
-	ciphertext, ok := resp.Data["ciphertext"]
+	keyPairs, ok := resp.Data["key_pairs"]
+	if !ok {
+		return nil, errors.New("missing key_pairs in response")
+	}
+
+	keyPairList, ok := keyPairs.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected type %T from response data", keyPairs)
+	}
+
+	if len(keyPairList) == 0 {
+		return nil, errors.New("key_pairs is empty")
+	}
+
+	keyPair, ok := keyPairList[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected type %T from response data", keyPair)
+	}
+
+	ciphertext, ok := keyPair["ciphertext"]
 	if !ok {
 		return nil, errors.New("missing ciphertext in response")
 	}
 
-	plaintext, ok := resp.Data["plaintext"]
+	plaintext, ok := keyPair["plaintext"]
 	if !ok {
 		return nil, errors.New("missing plaintext in response")
 	}
@@ -90,7 +110,7 @@ func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 	}, nil
 }
 
-func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
+func (p *transitKeyProvider) DecryptDataKey(edk string) ([]byte, error) {
 	if p.cache != nil {
 		if v, ok := p.cache.Get(edk); ok {
 			dek, ok := v.([]byte)
@@ -116,10 +136,13 @@ func (p *transitKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 func (p *transitKeyProvider) GetKeyData() KeyData {
 	namespace := p.client.Namespace()
 
-	return KeyData{
+	kd := KeyData{
 		KeyName:    &p.keyName,
 		KeyVersion: uint32(p.keyVersion),
 		MountPath:  &p.backend,
-		Namespace:  &namespace,
 	}
+	if namespace != "" {
+		kd.Namespace = &namespace
+	}
+	return kd
 }
