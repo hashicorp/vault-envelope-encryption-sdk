@@ -1,12 +1,11 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package vault_envelope_encryption_sdk
+package envelope
 
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -14,24 +13,17 @@ import (
 	"github.com/hashicorp/vault/api"
 )
 
-func init() {
-	if signed := os.Getenv("VAULT_LICENSE_CI"); signed != "" {
-		if err := os.Setenv("VAULT_LICENSE", signed); err != nil {
-			panic(err.Error())
-		}
-	}
-}
-
 type scheduledKeyProvider struct {
-	client   *api.Client
-	cache    *lru.Cache
-	keyName  string
-	backend  string
-	interval time.Duration
-	keys     map[string][]string
+	client     *api.Client
+	cache      *lru.Cache
+	keyName    string
+	keyVersion int
+	backend    string
+	interval   time.Duration
+	keys       map[string][]string
 }
 
-func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
+func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, error) {
 	err := checkCommonConfig(config)
 	if err != nil {
 		return nil, err
@@ -50,11 +42,12 @@ func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
 	}
 
 	provider := &scheduledKeyProvider{
-		client:   config.Client,
-		keyName:  config.KeyName,
-		backend:  config.Backend,
-		interval: config.DailyKeyInterval,
-		keys:     make(map[string][]string),
+		client:     config.Client,
+		keyName:    config.KeyName,
+		keyVersion: config.KeyVersion,
+		backend:    config.Backend,
+		interval:   config.DailyKeyInterval,
+		keys:       make(map[string][]string),
 	}
 
 	if config.CacheSize > 0 {
@@ -99,7 +92,6 @@ func NewScheduledKeyProvider(config ProviderConfig) (KeyProvider, error) {
 				if !ok {
 					return nil, fmt.Errorf("got unexpected type %T from response data", v)
 				}
-
 				provider.keys[date][keyIndex] = returnedMap["ciphertext"].(string)
 			}
 		}
@@ -116,7 +108,7 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 		return nil, errors.New("no keys configured for the current date")
 	}
 
-	timeElapsedInDay := now.Sub(time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC))
+	timeElapsedInDay := now.Sub(time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()))
 	keyIndex := int(timeElapsedInDay / p.interval)
 
 	if keyIndex >= len(todayKeys) {
@@ -124,16 +116,24 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 	}
 
 	edk := todayKeys[keyIndex]
-	if v, ok := p.cache.Get(edk); ok {
-		dek, ok := v.([]byte)
-		if !ok {
-			return nil, fmt.Errorf("got unexpected type %T from cache value", v)
-		}
+	if p.cache != nil {
+		if v, ok := p.cache.Get(edk); ok {
+			dek, ok := v.([]byte)
+			if !ok {
+				return nil, fmt.Errorf("got unexpected type %T from cache value", v)
+			}
 
-		return &KeyPair{
-			EDK: edk,
-			DEK: dek,
-		}, nil
+			version, ciphertext, err := parseEDKCiphertext(edk)
+			if err != nil {
+				return nil, err
+			}
+
+			return &KeyPair{
+				KeyVersion: version,
+				EDK:        ciphertext,
+				DEK:        dek,
+			}, nil
+		}
 	}
 
 	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
@@ -145,20 +145,28 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 		p.cache.Add(edk, dek)
 	}
 
+	version, ciphertext, err := parseEDKCiphertext(edk)
+	if err != nil {
+		return nil, err
+	}
+
 	return &KeyPair{
-		EDK: edk,
-		DEK: dek,
+		KeyVersion: version,
+		EDK:        ciphertext,
+		DEK:        dek,
 	}, nil
 }
 
-func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
-	if v, ok := p.cache.Get(edk); ok {
-		dek, ok := v.([]byte)
-		if !ok {
-			return nil, fmt.Errorf("got unexpected type %T from cache value", v)
-		}
+func (p *scheduledKeyProvider) DecryptDataKey(edk string) ([]byte, error) {
+	if p.cache != nil {
+		if v, ok := p.cache.Get(edk); ok {
+			dek, ok := v.([]byte)
+			if !ok {
+				return nil, fmt.Errorf("got unexpected type %T from cache value", v)
+			}
 
-		return dek, nil
+			return dek, nil
+		}
 	}
 
 	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
@@ -170,4 +178,15 @@ func (p *scheduledKeyProvider) DecryptKeyPair(edk string) ([]byte, error) {
 		p.cache.Add(edk, dek)
 	}
 	return dek, nil
+}
+
+func (p *scheduledKeyProvider) GetKeyData() KeyData {
+	namespace := p.client.Namespace()
+
+	return KeyData{
+		KeyName:    &p.keyName,
+		KeyVersion: uint32(p.keyVersion),
+		MountPath:  &p.backend,
+		Namespace:  &namespace,
+	}
 }
