@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/tink-crypto/tink-go/v2/streamingaead/subtle"
 )
 
@@ -80,6 +81,8 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, options ...Option) (io.
 		keyData.Namespace = nil
 	}
 	header.GetV1().KeyData = &keyData
+	header.GetV1().Algorithm = algorithmName
+	header.GetV1().Created = timestamppb.New(time.Now())
 
 	headerBytes, err := proto.Marshal(header)
 	if err != nil {
