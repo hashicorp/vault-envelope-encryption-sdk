@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/vault/api"
@@ -41,22 +42,22 @@ type ProviderConfig struct {
 	DaysFuture int
 	// The amount of time for which each data key is used.
 	// This field is only used by NewScheduledKeyProvider
-	DailyKeyInterval time.Duration
 }
 
 // KeyPair contains a Data Encryption Key (DEK)
 // and the Encrypted Data Key (EDK) resulting from
 // encrypting the DEK with a Transit key.
 type KeyPair struct {
-	EDK string
-	DEK []byte
+	KeyVersion int
+	EDK        []byte
+	DEK        []byte
 }
 
 // KeyProvider provides functions for managing data
 // keys using the Transit secrets engine.
 type KeyProvider interface {
 	GetKeyPair() (*KeyPair, error)
-	DecryptKeyPair(edk string) ([]byte, error)
+	DecryptDataKey(edk string) ([]byte, error)
 	GetKeyData() KeyData
 }
 
@@ -65,8 +66,8 @@ func checkCommonConfig(config ProviderConfig) error {
 		return errors.New("missing client")
 	}
 
-	if config.CacheSize <= 0 {
-		return errors.New("cache size must be greater than zero")
+	if config.CacheSize < 0 {
+		return errors.New("cache size must not be negative")
 	}
 
 	if config.Backend == "" {
@@ -124,4 +125,23 @@ func decryptKey(backend, keyName, ciphertext string, client *api.Client) ([]byte
 	}
 
 	return dek, nil
+}
+
+func parseEDKCiphertext(edk string) (int, []byte, error) {
+	segments := strings.Split(edk, ":")
+	if len(segments) != 3 {
+		return 0, nil, errors.New("invalid edk")
+	}
+
+	version, err := strconv.Atoi(strings.TrimPrefix(segments[1], "v"))
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to parse version from EDK: %v", err)
+	}
+
+	ciphertext, err := base64.StdEncoding.DecodeString(segments[2])
+	if err != nil {
+		return 0, nil, fmt.Errorf("error decoding ciphertext: %v", err)
+	}
+
+	return version, ciphertext, nil
 }
