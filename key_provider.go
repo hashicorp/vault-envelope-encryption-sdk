@@ -42,6 +42,7 @@ type ProviderConfig struct {
 	DaysFuture int
 	// The amount of time for which each data key is used.
 	// This field is only used by NewScheduledKeyProvider
+	DailyKeyInterval time.Duration
 }
 
 // KeyPair contains a Data Encryption Key (DEK)

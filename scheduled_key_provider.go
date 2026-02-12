@@ -163,7 +163,7 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 	}, nil
 }
 
-// DecryptKeyPair returns the plaintext DEK for the input EDK
+// DecryptDataKey returns the plaintext DEK for the input EDK
 func (p *scheduledKeyProvider) DecryptDataKey(edk string) ([]byte, error) {
 	if p.cache != nil {
 		if v, ok := p.cache.Get(edk); ok {

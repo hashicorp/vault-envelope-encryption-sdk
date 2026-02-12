@@ -48,7 +48,7 @@ ignore these values.
 the function will create one. The `KeyData` field of the header will be populated
 with the key data from `kp`.
 
-- `aad` - The AAD to use in the encryption
+- `aad` - The additional authenticated data (AAD) to use in the encryption
 
 - `length` - The length of the header in bytes
 
@@ -59,7 +59,7 @@ the DEK of the ciphertext.
 
 - `src` `(required)` - The `Reader` that provides the ciphertext
 
-- `aad` - The AAD used in the encryption of the ciphertext
+- `aad` - The additional authenticated data (AAD) used in the encryption of the ciphertext
 
 - `length` - The length of the header in bytes
 
