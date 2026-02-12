@@ -37,6 +37,10 @@ func NewHeader() *Header {
 	}
 }
 
+// NewEncryptingWriter creates a writer that encrypts all data using a key from
+// the KeyProvider kp then writes the data to Writer dest. It populates the
+// Header with key information from the KeyProvider. A magic value and the
+// header are written in cleartext before the writer is returned.
 func NewEncryptingWriter(kp KeyProvider, dest io.Writer, options ...Option) (io.WriteCloser, error) {
 	opts, err := getOpts(options...)
 	if err != nil {
@@ -138,6 +142,11 @@ func setupAead(header *Header, dek []byte) (*subtle.AESGCMHKDF, error) {
 	return subtle.NewAESGCMHKDF(dek, hkdfAlg, len(dek), int(ciphertextSegmentSize), 0)
 }
 
+ // NewDecryptingReader creates a Reader from src that decrypts data as it reads.
+// It reads the Header bytes first and writes the header to the channel, if provided.
+// It then retrieves the EDK from the header and attempts to decrypt it using kp. If the
+// decryption succeeds, it returns a Reader that will decrypt the bytes from src
+// as they are read.
 func NewDecryptingReader(kp KeyProvider, src io.Reader, options ...Option) (io.Reader, error) {
 	opts, err := getOpts(options...)
 	if err != nil {

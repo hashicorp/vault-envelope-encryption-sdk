@@ -23,6 +23,9 @@ type scheduledKeyProvider struct {
 	keys       map[string][]string
 }
 
+// NewScheduledKeyProvider creates a KeyProvider using the provided config.
+// This KeyProvider generates all data keys upon its creation and associates
+// each key with a time interval.
 func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, error) {
 	err := checkCommonConfig(config)
 	if err != nil {
@@ -100,6 +103,9 @@ func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, erro
 	return provider, nil
 }
 
+// GetKeyPair returns the KeyPair associated with the current time.
+// Subsequent calls may return the same key if the calls are made within
+// the same time interval.
 func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 	now := time.Now()
 	date := now.Format("2006-01-02")
@@ -157,6 +163,7 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 	}, nil
 }
 
+// DecryptDataKey returns the plaintext DEK for the input EDK
 func (p *scheduledKeyProvider) DecryptDataKey(edk string) ([]byte, error) {
 	if p.cache != nil {
 		if v, ok := p.cache.Get(edk); ok {
@@ -164,7 +171,6 @@ func (p *scheduledKeyProvider) DecryptDataKey(edk string) ([]byte, error) {
 			if !ok {
 				return nil, fmt.Errorf("got unexpected type %T from cache value", v)
 			}
-
 			return dek, nil
 		}
 	}
@@ -180,6 +186,8 @@ func (p *scheduledKeyProvider) DecryptDataKey(edk string) ([]byte, error) {
 	return dek, nil
 }
 
+// GetKeyData returns a KeyData struct with the KeyName, KeyVersion,
+// MountPath, and Namespace fields from the configured Transit key.
 func (p *scheduledKeyProvider) GetKeyData() KeyData {
 	namespace := p.client.Namespace()
 

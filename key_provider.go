@@ -14,24 +14,48 @@ import (
 	"github.com/hashicorp/vault/api"
 )
 
+// ProviderConfig contains config options for creating a KeyProvider
+// using NewTransitKeyProvider or NewScheduledKeyProvider.
 type ProviderConfig struct {
-	Client           *api.Client
-	CacheSize        int
-	KeyName          string
-	Backend          string
-	KeyVersion       int
-	KeyBits          int
-	DaysPast         int
-	DaysFuture       int
+	// A client authenticated to Vault
+	Client *api.Client
+	// The size of the KeyProvider's internal cache.
+	// A zero value disables caching.
+	CacheSize int
+	// The name of the key to use for encrypting data keys
+	KeyName string
+	// The name of the Transit backend
+	Backend string
+	// The version of the key to use. A zero value
+	// indicates the latest key version.
+	KeyVersion int
+	// The size of data keys. Valid values are 128, 256,
+	// and 512. The default is 256.
+	KeyBits int
+	// The number of days in the past for which to
+	// generate data keys.
+	// This field is only used by NewScheduledKeyProvider
+	DaysPast int
+	// The number of days into the future for which to
+	// generate data keys.
+	// This field is only used by NewScheduledKeyProvider
+	DaysFuture int
+	// The amount of time for which each data key is used.
+	// This field is only used by NewScheduledKeyProvider
 	DailyKeyInterval time.Duration
 }
 
+// KeyPair contains a Data Encryption Key (DEK)
+// and the Encrypted Data Key (EDK) resulting from
+// encrypting the DEK with a Transit key.
 type KeyPair struct {
 	KeyVersion int
 	EDK        []byte
 	DEK        []byte
 }
 
+// KeyProvider provides functions for managing data
+// keys using the Transit secrets engine.
 type KeyProvider interface {
 	GetKeyPair() (*KeyPair, error)
 	DecryptDataKey(edk string) ([]byte, error)
