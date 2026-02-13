@@ -22,7 +22,7 @@ keys.
 
 ### `TransitKeyProvider`
 The `TransitKeyProvider` uses the Transit secrets engine to generate and encrypt data
-keys. The `GetKeyPair` function uses the `datakey` endpoint to generate a new data key
+keys. The `GetKeyPair` function uses the `datakeys` endpoint to generate a new data key
 and encrypt it using the Transit key in its configuration. Each call to `GetKeyPair`
 generates a new data key. The `EDK` field contains the encrypted data key, which can be
 decrypted using the `DecryptKeyPair` function.
