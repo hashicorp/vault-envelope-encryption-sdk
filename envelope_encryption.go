@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/tink-crypto/tink-go/v2/streamingaead/subtle"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var MAGIC = []byte("VEE✉")
@@ -24,6 +24,7 @@ const (
 	algorithmName                = "OAE2-AES256-GCM96-HKDF"
 	defaultHkdfAlgo              = "SHA256"
 	defaultCiphertextSegmentSize = 1024768
+	maxHeaderSize                = defaultCiphertextSegmentSize
 )
 
 func NewHeader() *Header {
@@ -54,6 +55,9 @@ func NewEncryptingWriter(kp KeyProvider, dest io.Writer, options ...Option) (io.
 	}
 
 	if opts.length != nil {
+		if *opts.length < 0 {
+			return nil, fmt.Errorf("invalid length in header: %d", *opts.length)
+		}
 		l := uint64(*opts.length)
 		header.GetV1().Length = &l
 	}
@@ -142,7 +146,7 @@ func setupAead(header *Header, dek []byte) (*subtle.AESGCMHKDF, error) {
 	return subtle.NewAESGCMHKDF(dek, hkdfAlg, len(dek), int(ciphertextSegmentSize), 0)
 }
 
- // NewDecryptingReader creates a Reader from src that decrypts data as it reads.
+// NewDecryptingReader creates a Reader from src that decrypts data as it reads.
 // It reads the Header bytes first and writes the header to the channel, if provided.
 // It then retrieves the EDK from the header and attempts to decrypt it using kp. If the
 // decryption succeeds, it returns a Reader that will decrypt the bytes from src
@@ -174,6 +178,18 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, options ...Option) (io.R
 
 	if opts.headerOut != nil {
 		opts.headerOut <- header
+	}
+
+	if header.GetV1().Algorithm != algorithmName && header.GetV1().Algorithm != "" {
+		return nil, fmt.Errorf("unsupported algorithm %s", header.GetV1().Algorithm)
+	}
+
+	if header.GetV1().KeyData == nil {
+		return nil, errors.New("header contains no key data")
+	}
+
+	if len(header.GetV1().KeyData.Edk) == 0 {
+		return nil, errors.New("header contains no EDK")
 	}
 
 	key, err := kp.DecryptDataKey(fmt.Sprintf("vault:v%d:%s", header.GetV1().KeyData.KeyVersion, base64.StdEncoding.EncodeToString(header.GetV1().KeyData.Edk)))
@@ -212,6 +228,9 @@ func ReadHeader(in io.Reader) (*Header, error) {
 	}
 
 	headerLength := binary.LittleEndian.Uint32(headerLen)
+	if headerLength > maxHeaderSize {
+		return nil, fmt.Errorf("header too large: %d", headerLength)
+	}
 
 	header, err := readHeaderOnly(in, headerLength)
 	if err != nil {
@@ -222,7 +241,7 @@ func ReadHeader(in io.Reader) (*Header, error) {
 
 func readHeaderOnly(src io.Reader, headerLen uint32) (*Header, error) {
 	headerBytes := make([]byte, headerLen)
-	n, err := src.Read(headerBytes)
+	n, err := io.ReadFull(src, headerBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error reading header: %v", err)
 	}
@@ -235,6 +254,10 @@ func readHeaderOnly(src io.Reader, headerLen uint32) (*Header, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshalling header: %v", err)
 	}
+
+	if header.GetV1() == nil {
+		return nil, errors.New("no header unmarshalled")
+	}
 	return header, nil
 }
 
@@ -242,6 +265,10 @@ func (h *Header) Map() map[string]any {
 	rv := make(map[string]any)
 
 	v1 := h.GetV1()
+	if v1 == nil {
+		return rv
+	}
+	
 	if len(v1.Algorithm) > 0 {
 		rv["algorithm"] = v1.Algorithm
 	}
