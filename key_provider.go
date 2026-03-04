@@ -49,7 +49,7 @@ type ProviderConfig struct {
 // and the Encrypted Data Key (EDK) resulting from
 // encrypting the DEK with a Transit key.
 type KeyPair struct {
-	KeyVersion int
+	KeyVersion uint32
 	EDK        []byte
 	DEK        []byte
 }
@@ -128,7 +128,7 @@ func decryptKey(backend, keyName, ciphertext string, client *api.Client) ([]byte
 	return dek, nil
 }
 
-func parseEDKCiphertext(edk string) (int, []byte, error) {
+func parseEDKCiphertext(edk string) (uint32, []byte, error) {
 	segments := strings.Split(edk, ":")
 	if len(segments) != 3 {
 		return 0, nil, errors.New("invalid edk")
@@ -144,5 +144,5 @@ func parseEDKCiphertext(edk string) (int, []byte, error) {
 		return 0, nil, fmt.Errorf("error decoding ciphertext: %v", err)
 	}
 
-	return version, ciphertext, nil
+	return uint32(version), ciphertext, nil
 }
