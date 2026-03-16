@@ -43,6 +43,8 @@ type ProviderConfig struct {
 	// The amount of time for which each data key is used.
 	// This field is only used by NewScheduledKeyProvider
 	DailyKeyInterval time.Duration
+	// Context for key derivation if derived is set to true on the Transit key
+	Context []byte
 }
 
 // KeyPair contains a Data Encryption Key (DEK)
@@ -105,8 +107,12 @@ func checkCommonConfig(config ProviderConfig) error {
 	return nil
 }
 
-func decryptKey(backend, keyName, ciphertext string, client *api.Client) ([]byte, error) {
-	resp, err := client.Logical().Write(fmt.Sprintf("%s/decrypt/%s", backend, keyName), map[string]interface{}{"ciphertext": ciphertext})
+func decryptKey(backend, keyName, ciphertext, context string, client *api.Client) ([]byte, error) {
+	data := map[string]interface{}{"ciphertext": ciphertext}
+	if len(context) > 0 {
+		data["context"] = context
+	}
+	resp, err := client.Logical().Write(fmt.Sprintf("%s/decrypt/%s", backend, keyName), data)
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting key: %v", err)
 	}

@@ -4,6 +4,7 @@
 package envelope
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strconv"
@@ -21,6 +22,7 @@ type scheduledKeyProvider struct {
 	backend    string
 	interval   time.Duration
 	keys       map[string][]string
+	context    string
 }
 
 // NewScheduledKeyProvider creates a KeyProvider using the provided config.
@@ -53,6 +55,10 @@ func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, erro
 		keys:       make(map[string][]string),
 	}
 
+	if len(config.Context) > 0 {
+		provider.context = base64.StdEncoding.EncodeToString(config.Context)
+	}
+
 	if config.CacheSize > 0 {
 		provider.cache, err = lru.New(config.CacheSize)
 		if err != nil {
@@ -73,6 +79,9 @@ func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, erro
 			"key_index_from": 0,
 			"key_index_to":   keysPerDay,
 			"key_version":    config.KeyVersion,
+		}
+		if len(config.Context) > 0 {
+			data["context"] = base64.StdEncoding.EncodeToString(config.Context)
 		}
 
 		if config.KeyBits != 0 {
@@ -142,7 +151,7 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 		}
 	}
 
-	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
+	dek, err := decryptKey(p.backend, p.keyName, edk, p.context, p.client)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +184,7 @@ func (p *scheduledKeyProvider) DecryptDataKey(edk string) ([]byte, error) {
 		}
 	}
 
-	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
+	dek, err := decryptKey(p.backend, p.keyName, edk, p.context, p.client)
 	if err != nil {
 		return nil, err
 	}

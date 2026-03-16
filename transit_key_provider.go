@@ -19,6 +19,7 @@ type transitKeyProvider struct {
 	backend    string
 	keyBits    int
 	keyVersion int
+	context    string
 }
 
 // NewTransitKeyProvider creates a KeyProvider that uses the Transit key
@@ -35,6 +36,9 @@ func NewTransitKeyProvider(config ProviderConfig) (*transitKeyProvider, error) {
 		backend:    config.Backend,
 		keyBits:    config.KeyBits,
 		keyVersion: config.KeyVersion,
+	}
+	if len(config.Context) > 0 {
+		provider.context = base64.StdEncoding.EncodeToString(config.Context)
 	}
 
 	if config.CacheSize > 0 {
@@ -57,6 +61,10 @@ func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 
 	if p.keyBits != 0 {
 		data["bits"] = p.keyBits
+	}
+
+	if len(p.context) > 0 {
+		data["context"] = p.context
 	}
 
 	resp, err := p.client.Logical().Write(fmt.Sprintf("%s/datakeys/plaintext/%s", p.backend, p.keyName), data)
@@ -127,7 +135,7 @@ func (p *transitKeyProvider) DecryptDataKey(edk string) ([]byte, error) {
 		}
 	}
 
-	dek, err := decryptKey(p.backend, p.keyName, edk, p.client)
+	dek, err := decryptKey(p.backend, p.keyName, edk, p.context, p.client)
 	if err != nil {
 		return nil, err
 	}
