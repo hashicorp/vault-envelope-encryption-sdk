@@ -137,7 +137,7 @@ func TestDecryptKey(t *testing.T) {
 	// Determine if we have Vault 2.0
 	health, err := client.Sys().Health()
 	require.NoError(t, err)
-	have20 := strings.HasPrefix(health.Version, "2.")
+	have20 := strings.HasPrefix(health.Version, "1.22") || strings.HasPrefix(health.Version, "2.") // since we still haven't moved to 2.0 as the version yet
 
 	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s/rotate", backend, testKeyName), map[string]interface{}{})
 	require.NoError(t, err)
