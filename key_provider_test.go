@@ -251,7 +251,7 @@ func TestDecryptKey(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		if tc.requires20 && have20 {
+		if !tc.requires20 || have20 {
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 
