@@ -6,6 +6,7 @@ package envelope
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/go-uuid"
@@ -132,7 +133,13 @@ func TestDecryptKey(t *testing.T) {
 	t.Parallel()
 
 	client, backend := providerTestSetup(t)
-	_, err := client.Logical().Write(fmt.Sprintf("%s/keys/%s/rotate", backend, testKeyName), map[string]interface{}{})
+
+	// Determine if we have Vault 2.0
+	health, err := client.Sys().Health()
+	require.NoError(t, err)
+	have20 := strings.HasPrefix(health.Version, "2.")
+
+	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s/rotate", backend, testKeyName), map[string]interface{}{})
 	require.NoError(t, err)
 
 	resp, err := client.Logical().Write(fmt.Sprintf("%s/datakeys/plaintext/%s", backend, testKeyName), map[string]interface{}{"key_version": 1, "count": 1})
@@ -153,28 +160,6 @@ func TestDecryptKey(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test derived success and fail.  Temporarily disabled until we have a Vault release with the API support to test against
-	/*
-		resp, err = client.Logical().Write(fmt.Sprintf("%s/datakeys/plaintext/%s", backend, testKeyNameDerived), map[string]interface{}{"count": 1})
-		require.Error(t, err)
-		require.True(t, strings.Contains(err.Error(), "missing 'context'"))
-
-		resp, err = client.Logical().Write(fmt.Sprintf("%s/datakeys/plaintext/%s", backend, testKeyNameDerived), map[string]interface{}{"count": 1, "context": testContext})
-		require.NoError(t, err)
-		require.NotNil(t, resp.Data)
-
-		keypairsRaw, ok = resp.Data["key_pairs"]
-		require.True(t, ok)
-		keypairs = keypairsRaw.([]any)
-		first = keypairs[0].(map[string]any)
-		contextCiphertext, ok := first["ciphertext"].(string)
-		require.True(t, ok)
-
-		contextPlaintextEncoded, ok := first["plaintext"].(string)
-		require.True(t, ok)
-
-		contextPlaintext, err := base64.StdEncoding.DecodeString(contextPlaintextEncoded)
-		require.NoError(t, err)
-	*/
 
 	resp, err = client.Logical().Write(fmt.Sprintf("%s/datakeys/plaintext/%s", backend, testKeyName), map[string]interface{}{"key_version": 2, "count": 1})
 	require.NoError(t, err)
@@ -193,14 +178,17 @@ func TestDecryptKey(t *testing.T) {
 	v2Plaintext, err := base64.StdEncoding.DecodeString(v2PlaintextEncoded)
 	require.NoError(t, err)
 
-	testCases := map[string]struct {
+	type tCase struct {
 		backend     string
 		keyName     string
 		edk         string
 		expectedKey []byte
 		expectErr   bool
 		context     string
-	}{
+		requires20  bool
+	}
+
+	testCases := map[string]tCase{
 		"invalid backend": {
 			backend:   "trasnit",
 			keyName:   testKeyName,
@@ -229,28 +217,53 @@ func TestDecryptKey(t *testing.T) {
 			edk:         v2Ciphertext,
 			expectedKey: v2Plaintext,
 		},
-		/*	"with context": {
-				backend:     backend,
-				keyName:     testKeyNameDerived,
-				edk:         contextCiphertext,
-				expectedKey: contextPlaintext,
-				context:     testContext,
-			},
-		*/
+	}
+	if have20 {
+		resp, err = client.Logical().Write(fmt.Sprintf("%s/datakeys/plaintext/%s", backend, testKeyNameDerived), map[string]interface{}{"count": 1})
+		require.Error(t, err)
+		require.True(t, strings.Contains(err.Error(), "missing 'context'"))
+
+		resp, err = client.Logical().Write(fmt.Sprintf("%s/datakeys/plaintext/%s", backend, testKeyNameDerived), map[string]interface{}{"count": 1, "context": testContext})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Data)
+
+		keypairsRaw, ok = resp.Data["key_pairs"]
+		require.True(t, ok)
+		keypairs = keypairsRaw.([]any)
+		first = keypairs[0].(map[string]any)
+		contextCiphertext, ok := first["ciphertext"].(string)
+		require.True(t, ok)
+
+		contextPlaintextEncoded, ok := first["plaintext"].(string)
+		require.True(t, ok)
+
+		contextPlaintext, err := base64.StdEncoding.DecodeString(contextPlaintextEncoded)
+		require.NoError(t, err)
+
+		testCases["with context"] = tCase{
+			backend:     backend,
+			keyName:     testKeyNameDerived,
+			edk:         contextCiphertext,
+			expectedKey: contextPlaintext,
+			context:     testContext,
+			requires20:  true,
+		}
 	}
 
 	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+		if tc.requires20 && have20 {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
 
-			dek, err := decryptKey(tc.backend, tc.keyName, tc.edk, tc.context, client)
-			if tc.expectErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.expectedKey, dek)
-			}
-		})
+				dek, err := decryptKey(tc.backend, tc.keyName, tc.edk, tc.context, client)
+				if tc.expectErr {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+					require.Equal(t, tc.expectedKey, dek)
+				}
+			})
+		}
 	}
 }
 
