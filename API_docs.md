@@ -21,6 +21,9 @@ These parameters are common to both `TransitKeyProvider` and `ScheduledKeyProvid
 
 - `KeyBits` `(int: 256)` - The size of data keys to generate.
 
+- `Context` `([]byte: nil)` - Context for key derivation of the base Transit
+  key if it is set `derived=true`
+
 ### `ScheduledKeyProvider` Config Parameters
 
 These Parameters are specific to `ScheduledKeyProvider`. `TransitKeyProvider` will
