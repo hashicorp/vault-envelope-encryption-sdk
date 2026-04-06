@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/tink-crypto/tink-go/v2/streamingaead/subtle"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var MAGIC = []byte("VEE✉")
@@ -142,7 +142,7 @@ func setupAead(header *Header, dek []byte) (*subtle.AESGCMHKDF, error) {
 	return subtle.NewAESGCMHKDF(dek, hkdfAlg, len(dek), int(ciphertextSegmentSize), 0)
 }
 
- // NewDecryptingReader creates a Reader from src that decrypts data as it reads.
+// NewDecryptingReader creates a Reader from src that decrypts data as it reads.
 // It reads the Header bytes first and writes the header to the channel, if provided.
 // It then retrieves the EDK from the header and attempts to decrypt it using kp. If the
 // decryption succeeds, it returns a Reader that will decrypt the bytes from src
@@ -176,7 +176,7 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, options ...Option) (io.R
 		opts.headerOut <- header
 	}
 
-	key, err := kp.DecryptDataKey(fmt.Sprintf("vault:v%d:%s", header.GetV1().KeyData.KeyVersion, base64.StdEncoding.EncodeToString(header.GetV1().KeyData.Edk)))
+	key, err := kp.DecryptDataKey(header.GetV1().KeyData.vaultString())
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting key: %v", err)
 	}
@@ -283,4 +283,12 @@ func (h *Header) Map() map[string]any {
 	}
 
 	return rv
+}
+
+func (k KeyData) vaultString() string {
+	return toTransitCiphertext(uint(k.KeyVersion), k.Edk)
+}
+
+func toTransitCiphertext(version uint, ciphertext []byte) string {
+	return fmt.Sprintf("vault:v%d:%s", version, base64.StdEncoding.EncodeToString(ciphertext))
 }
