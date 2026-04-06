@@ -165,8 +165,7 @@ func (p *scheduledKeyProvider) GetKeyPair() (*KeyPair, error) {
 		return nil, fmt.Errorf("key index %d out of range", keyIndex)
 	}
 
-	rv := todayKeys[keyIndex]
-	return rv, nil
+	return todayKeys[keyIndex], nil
 }
 
 // DecryptDataKey returns the plaintext DEK for the input EDK
