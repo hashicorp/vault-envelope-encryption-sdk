@@ -4,7 +4,6 @@
 package envelope
 
 import (
-	"encoding/base64"
 	"fmt"
 	"testing"
 	"time"
@@ -213,20 +212,16 @@ func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
 	client, backend := providerTestSetup(t)
 
 	testCases := map[string]struct {
-		interval  time.Duration
-		cacheSize int
+		interval time.Duration
+		keyCount int
 	}{
 		"single key per day": {
-			interval:  24 * time.Hour,
-			cacheSize: 1,
+			interval: 24 * time.Hour,
+			keyCount: 1,
 		},
 		"key per hour": {
-			interval:  time.Hour,
-			cacheSize: 1,
-		},
-		"no caching": {
-			interval:  24 * time.Hour,
-			cacheSize: 0,
+			interval: time.Hour,
+			keyCount: 24,
 		},
 	}
 
@@ -239,7 +234,6 @@ func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
 				Client:           client,
 				Backend:          backend,
 				KeyName:          testKeyName,
-				CacheSize:        tc.cacheSize,
 			})
 			require.NoError(t, err)
 
@@ -248,9 +242,8 @@ func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
 			require.NotEmpty(t, key)
 			require.Equal(t, 32, len(key.DEK))
 
-			if tc.cacheSize > 0 {
-				require.NotNil(t, provider.cache)
-				require.Equal(t, tc.cacheSize, provider.cache.Len())
+			if tc.keyCount > 0 {
+				require.Equal(t, tc.keyCount, provider.keyCount())
 			} else {
 				require.Nil(t, provider.cache)
 			}
@@ -274,15 +267,15 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 	key, err := provider.GetKeyPair()
 	require.NoError(t, err)
 
-	ciphertext := fmt.Sprintf("vault:v%d:%s", key.KeyVersion, base64.StdEncoding.EncodeToString(key.EDK))
+	ciphertext := toTransitCiphertext(uint(key.KeyVersion), key.EDK)
 
 	dek, err := provider.DecryptDataKey(ciphertext)
 	require.NoError(t, err)
 	require.Equal(t, key.DEK, dek)
 
 	require.NotNil(t, provider.cache)
-	require.Equal(t, 1, provider.cache.Len())
-	require.True(t, provider.cache.Contains(ciphertext))
+	require.Equal(t, 1, provider.keyCount())
+	require.NotNil(t, provider.edkMap[ciphertext])
 
 	// make it impossible for the provider to reach the key
 	// to validate that it's loading from the cache
@@ -305,7 +298,7 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 	key, err = provider.GetKeyPair()
 	require.NoError(t, err)
 
-	ciphertext = fmt.Sprintf("vault:v%d:%s", key.KeyVersion, base64.StdEncoding.EncodeToString(key.EDK))
+	ciphertext = toTransitCiphertext(uint(key.KeyVersion), key.EDK)
 
 	dek, err = provider.DecryptDataKey(ciphertext)
 	require.NoError(t, err)
@@ -315,7 +308,7 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 
 	// this should fail without caching
 	provider.keyName = "bad-key"
-	dek, err = provider.DecryptDataKey(ciphertext)
+	dek, err = provider.DecryptDataKey(ciphertext[1:])
 	require.Error(t, err)
 
 	// error case
