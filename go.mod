@@ -1,6 +1,6 @@
 module github.com/hashicorp/vault-envelope-encryption-sdk
 
-go 1.25.3
+go 1.25.13
 
 require (
 	github.com/golang/protobuf v1.5.0
