@@ -60,6 +60,8 @@ func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, erro
 
 	if len(config.Context) > 0 {
 		provider.context = base64.StdEncoding.EncodeToString(config.Context)
+	} else {
+		provider.context = base64.StdEncoding.EncodeToString([]byte("Vault Envelope Encryption: Convergent KEK"))
 	}
 
 	if config.CacheSize > 0 {
@@ -84,9 +86,7 @@ func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, erro
 			"key_index_to":   keysPerDay,
 			"key_version":    config.KeyVersion,
 		}
-		if len(config.Context) > 0 {
-			data["context"] = base64.StdEncoding.EncodeToString(config.Context)
-		}
+		data["context"] = provider.context
 
 		if config.KeyBits != 0 {
 			data["key_bits"] = config.KeyBits
