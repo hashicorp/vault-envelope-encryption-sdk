@@ -42,7 +42,7 @@ func TestNewEncryptingWriter(t *testing.T) {
 	scheduledProvider, err := NewScheduledKeyProvider(ProviderConfig{
 		Client:           client,
 		CacheSize:        1,
-		KeyName:          keyName,
+		KeyName:          testKeyNameDerived,
 		Backend:          backend,
 		DaysPast:         1,
 		DaysFuture:       1,
@@ -182,7 +182,7 @@ func TestNewDecryptingReader(t *testing.T) {
 	scheduledProvider, err := NewScheduledKeyProvider(ProviderConfig{
 		Client:           client,
 		CacheSize:        1,
-		KeyName:          keyName,
+		KeyName:          testKeyNameDerived,
 		Backend:          backend,
 		DaysPast:         1,
 		DaysFuture:       1,
@@ -350,7 +350,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	scheduledProvider, err := NewScheduledKeyProvider(ProviderConfig{
 		Client:           client,
 		CacheSize:        1,
-		KeyName:          testKeyName,
+		KeyName:          testKeyNameDerived,
 		Backend:          backend,
 		DaysPast:         1,
 		DaysFuture:       1,

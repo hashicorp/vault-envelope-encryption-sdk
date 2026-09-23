@@ -284,12 +284,7 @@ func providerTestSetup(t *testing.T) (*api.Client, string) {
 	err = client.Sys().Mount(backend, &api.MountInput{Type: "transit"})
 	require.NoError(t, err)
 
-	// testKeyName must be convergent and derived to support the /derivedkeys/ endpoint
-	// used by scheduledKeyProvider.
-	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s", backend, testKeyName), map[string]any{
-		"derived":               "true",
-		"convergent_encryption": "true",
-	})
+	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s", backend, testKeyName), nil)
 	require.NoError(t, err)
 
 	data := map[string]any{
