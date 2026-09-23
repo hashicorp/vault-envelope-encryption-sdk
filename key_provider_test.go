@@ -288,7 +288,8 @@ func providerTestSetup(t *testing.T) (*api.Client, string) {
 	require.NoError(t, err)
 
 	data := map[string]any{
-		"derived": "true",
+		"derived":               "true",
+		"convergent_encryption": "true",
 	}
 
 	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s", backend, testKeyNameDerived), data)
