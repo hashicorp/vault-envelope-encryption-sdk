@@ -85,7 +85,7 @@ func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, erro
 			"key_version":    config.KeyVersion,
 		}
 		if len(config.Context) > 0 {
-			data["context"] = provider.context
+			data["context"] = base64.StdEncoding.EncodeToString(config.Context)
 		}
 
 		if config.KeyBits != 0 {
