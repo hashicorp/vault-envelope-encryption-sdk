@@ -18,7 +18,7 @@ type transitKeyProvider struct {
 	keyName    string
 	backend    string
 	keyBits    int
-	keyVersion int
+	keyVersion uint32
 	context    string
 }
 
@@ -116,7 +116,7 @@ func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 	}
 
 	return &KeyPair{
-		KeyVersion: version,
+		KeyVersion: uint32(version),
 		EDK:        edk,
 		DEK:        plaintextBytes,
 	}, nil
