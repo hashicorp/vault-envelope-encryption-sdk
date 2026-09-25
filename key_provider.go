@@ -150,5 +150,5 @@ func parseEDKCiphertext(edk string) (int, []byte, error) {
 		return 0, nil, fmt.Errorf("error decoding ciphertext: %v", err)
 	}
 
-	return uint32(version), ciphertext, nil
+	return version, ciphertext, nil
 }

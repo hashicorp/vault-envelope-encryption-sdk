@@ -116,7 +116,7 @@ func (p *transitKeyProvider) GetKeyPair() (*KeyPair, error) {
 	}
 
 	return &KeyPair{
-		KeyVersion: version,
+		KeyVersion: uint32(version),
 		EDK:        edk,
 		DEK:        plaintextBytes,
 	}, nil
