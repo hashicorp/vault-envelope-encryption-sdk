@@ -133,7 +133,7 @@ func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, erro
 				}
 
 				kp := KeyPair{
-					KeyVersion: version,
+					KeyVersion: uint32(version),
 					EDK:        edk,
 					DEK:        dek,
 				}

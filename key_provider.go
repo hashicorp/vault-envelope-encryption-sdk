@@ -134,7 +134,7 @@ func decryptKey(backend, keyName, ciphertext, context string, client *api.Client
 	return dek, nil
 }
 
-func parseEDKCiphertext(edk string) (uint32, []byte, error) {
+func parseEDKCiphertext(edk string) (int, []byte, error) {
 	segments := strings.Split(edk, ":")
 	if len(segments) != 3 {
 		return 0, nil, errors.New("invalid edk")
