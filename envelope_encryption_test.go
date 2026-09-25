@@ -42,7 +42,7 @@ func TestNewEncryptingWriter(t *testing.T) {
 	scheduledProvider, err := NewScheduledKeyProvider(ProviderConfig{
 		Client:           client,
 		CacheSize:        1,
-		KeyName:          keyName,
+		KeyName:          testKeyNameDerived,
 		Backend:          backend,
 		DaysPast:         1,
 		DaysFuture:       1,
@@ -182,7 +182,7 @@ func TestNewDecryptingReader(t *testing.T) {
 	scheduledProvider, err := NewScheduledKeyProvider(ProviderConfig{
 		Client:           client,
 		CacheSize:        1,
-		KeyName:          keyName,
+		KeyName:          testKeyNameDerived,
 		Backend:          backend,
 		DaysPast:         1,
 		DaysFuture:       1,
@@ -232,7 +232,7 @@ func TestNewDecryptingReader(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			key, err := provider.GetKeyPair()
+			key, err := tc.provider.GetKeyPair()
 			require.NoError(t, err)
 
 			fileSize := createCiphertext(t, backend, ciphertextPath+name, tc.aad, key)
@@ -350,7 +350,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	scheduledProvider, err := NewScheduledKeyProvider(ProviderConfig{
 		Client:           client,
 		CacheSize:        1,
-		KeyName:          testKeyName,
+		KeyName:          testKeyNameDerived,
 		Backend:          backend,
 		DaysPast:         1,
 		DaysFuture:       1,
@@ -420,7 +420,8 @@ func testEncryptDecryptWithProvider(t *testing.T, backend string, provider KeyPr
 
 	plaintext := []byte("test plaintext")
 
-	keyName := testKeyName
+	keyData := provider.GetKeyData()
+	keyName := *keyData.KeyName
 
 	aad := []byte("test aad")
 

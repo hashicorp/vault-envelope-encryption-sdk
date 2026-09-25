@@ -24,7 +24,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"single key per day": {
 			config: ProviderConfig{
 				Client:           client,
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
@@ -36,7 +36,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"missing backend": {
 			config: ProviderConfig{
 				Client:           client,
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 				CacheSize:        1,
 				DaysPast:         1,
 				DaysFuture:       1,
@@ -69,7 +69,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		},
 		"nil client": {
 			config: ProviderConfig{
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
@@ -81,7 +81,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"zero cache size": {
 			config: ProviderConfig{
 				Client:           client,
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 				Backend:          backend,
 				CacheSize:        0,
 				DaysPast:         1,
@@ -93,7 +93,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"negative cache size": {
 			config: ProviderConfig{
 				Client:           client,
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 				Backend:          backend,
 				CacheSize:        -1,
 				DaysPast:         1,
@@ -105,7 +105,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"zero key interval": {
 			config: ProviderConfig{
 				Client:           client,
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
@@ -117,7 +117,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"negative key interval": {
 			config: ProviderConfig{
 				Client:           client,
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
@@ -129,7 +129,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"negative daysPast": {
 			config: ProviderConfig{
 				Client:           client,
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         -1,
@@ -141,7 +141,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"negative daysFuture": {
 			config: ProviderConfig{
 				Client:           client,
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
@@ -153,7 +153,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"zero daysPast and daysFuture": {
 			config: ProviderConfig{
 				Client:           client,
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         0,
@@ -165,7 +165,7 @@ func TestNewScheduledKeyProvider(t *testing.T) {
 		"multiple keys per day": {
 			config: ProviderConfig{
 				Client:           client,
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 				Backend:          backend,
 				CacheSize:        1,
 				DaysPast:         1,
@@ -233,7 +233,7 @@ func TestGetKeyPair_scheduledKeyProvider(t *testing.T) {
 				DailyKeyInterval: tc.interval,
 				Client:           client,
 				Backend:          backend,
-				KeyName:          testKeyName,
+				KeyName:          testKeyNameDerived,
 			})
 			require.NoError(t, err)
 
@@ -259,7 +259,7 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 		DailyKeyInterval: 24 * time.Hour,
 		Client:           client,
 		Backend:          backend,
-		KeyName:          testKeyName,
+		KeyName:          testKeyNameDerived,
 		CacheSize:        1,
 	})
 	require.NoError(t, err)
@@ -290,7 +290,7 @@ func TestDecryptKeyPair_scheduledKeyProvider(t *testing.T) {
 		DailyKeyInterval: 24 * time.Hour,
 		Client:           client,
 		Backend:          backend,
-		KeyName:          testKeyName,
+		KeyName:          testKeyNameDerived,
 		CacheSize:        0,
 	})
 	require.NoError(t, err)

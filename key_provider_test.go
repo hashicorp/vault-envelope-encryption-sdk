@@ -287,11 +287,20 @@ func providerTestSetup(t *testing.T) (*api.Client, string) {
 	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s", backend, testKeyName), nil)
 	require.NoError(t, err)
 
-	data := map[string]any{
-		"derived": "true",
+	// From Vault 2.0, /derivedkeys/ requires the KEK to be convergent+derived.
+	health, err := client.Sys().Health()
+	require.NoError(t, err)
+	derivedKeyRequiresConvergent := strings.HasPrefix(health.Version, "2.")
+
+	var derivedKeyData map[string]any
+	if derivedKeyRequiresConvergent {
+		derivedKeyData = map[string]any{
+			"derived":               "true",
+			"convergent_encryption": "true",
+		}
 	}
 
-	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s", backend, testKeyNameDerived), data)
+	_, err = client.Logical().Write(fmt.Sprintf("%s/keys/%s", backend, testKeyNameDerived), derivedKeyData)
 	require.NoError(t, err)
 
 	return client, backend
