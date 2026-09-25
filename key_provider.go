@@ -28,7 +28,7 @@ type ProviderConfig struct {
 	Backend string
 	// The version of the key to use. A zero value
 	// indicates the latest key version.
-	KeyVersion int
+	KeyVersion uint32
 	// The size of data keys. Valid values are 128, 256,
 	// and 512. The default is 256.
 	KeyBits int
@@ -99,7 +99,7 @@ func checkCommonConfig(config ProviderConfig) error {
 			return errors.New("keys not found in response")
 		}
 
-		if _, ok := keys[strconv.Itoa(config.KeyVersion)]; !ok {
+		if _, ok := keys[strconv.Itoa(int(config.KeyVersion))]; !ok {
 			return fmt.Errorf("invalid key version %d for key %s", config.KeyVersion, config.KeyName)
 		}
 	}

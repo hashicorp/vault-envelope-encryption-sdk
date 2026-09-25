@@ -18,7 +18,7 @@ type transitKeyProvider struct {
 	keyName    string
 	backend    string
 	keyBits    int
-	keyVersion int
+	keyVersion uint32
 	context    string
 }
 
