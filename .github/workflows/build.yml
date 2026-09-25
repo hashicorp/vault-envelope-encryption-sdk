@@ -24,7 +24,7 @@ jobs:
         run: echo "version=$(cat .go-version)" >> "$GITHUB_OUTPUT"
 
   build:
-    runs-on: [ 'self-hosted', 'small', 'linux' ]
+    runs-on: ubuntu-latest
     env:
       TEST_RESULTS: "/tmp/test-results/gotestsum-report.xml"
     permissions:
