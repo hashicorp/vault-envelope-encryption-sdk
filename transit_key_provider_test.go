@@ -28,7 +28,7 @@ func TestNewTransitKeyProvider(t *testing.T) {
 	require.Equal(t, backend, provider.backend)
 	require.Equal(t, testKeyName, provider.keyName)
 	require.Equal(t, 128, provider.keyBits)
-	require.Equal(t, 1, provider.keyVersion)
+	require.Equal(t, uint32(1), provider.keyVersion)
 }
 
 func TestGetKeyPair_transitKeyProvider(t *testing.T) {
@@ -41,7 +41,7 @@ func TestGetKeyPair_transitKeyProvider(t *testing.T) {
 
 	testCases := map[string]struct {
 		bits          int
-		keyVersion    int
+		keyVersion    uint32
 		cacheSize     int
 		expectedError string
 	}{
@@ -98,7 +98,7 @@ func TestGetKeyPair_transitKeyProvider(t *testing.T) {
 			require.NotEmpty(t, keyPair.EDK)
 			require.NotEmpty(t, keyPair.DEK)
 
-			expectedVersion := 2
+			expectedVersion := uint32(2)
 			if tc.keyVersion != 0 {
 				expectedVersion = tc.keyVersion
 			}

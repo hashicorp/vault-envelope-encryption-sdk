@@ -18,7 +18,7 @@ type scheduledKeyProvider struct {
 	client     *api.Client
 	cache      *lru.Cache
 	keyName    string
-	keyVersion int
+	keyVersion uint32
 	backend    string
 	interval   time.Duration
 	keys       map[string][]*KeyPair
@@ -133,7 +133,7 @@ func NewScheduledKeyProvider(config ProviderConfig) (*scheduledKeyProvider, erro
 				}
 
 				kp := KeyPair{
-					KeyVersion: version,
+					KeyVersion: uint32(version),
 					EDK:        edk,
 					DEK:        dek,
 				}
