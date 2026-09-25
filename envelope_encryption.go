@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2025, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package envelope
@@ -192,7 +192,7 @@ func NewDecryptingReader(kp KeyProvider, src io.Reader, options ...Option) (io.R
 		return nil, errors.New("header contains no EDK")
 	}
 
-	key, err := kp.DecryptDataKey(fmt.Sprintf("vault:v%d:%s", header.GetV1().KeyData.KeyVersion, base64.StdEncoding.EncodeToString(header.GetV1().KeyData.Edk)))
+	key, err := kp.DecryptDataKey(header.GetV1().KeyData.vaultString())
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting key: %v", err)
 	}
@@ -268,7 +268,7 @@ func (h *Header) Map() map[string]any {
 	if v1 == nil {
 		return rv
 	}
-	
+
 	if len(v1.Algorithm) > 0 {
 		rv["algorithm"] = v1.Algorithm
 	}
@@ -310,4 +310,12 @@ func (h *Header) Map() map[string]any {
 	}
 
 	return rv
+}
+
+func (k KeyData) vaultString() string {
+	return toTransitCiphertext(uint(k.KeyVersion), k.Edk)
+}
+
+func toTransitCiphertext(version uint, ciphertext []byte) string {
+	return fmt.Sprintf("vault:v%d:%s", version, base64.StdEncoding.EncodeToString(ciphertext))
 }
